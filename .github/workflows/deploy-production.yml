@@ -1,0 +1,206 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+      approve:
+        description: 'Approve deployment'
+        required: true
+        type: boolean
+      version:
+        description: 'Version to deploy'
+        required: true
+        default: '0.9.0-beta'
+
+env:
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PROD }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Check for critical vulnerabilities
+      run: |
+        if grep -q "CRITICAL" trivy-results.sarif; then
+          echo "❌ Critical vulnerabilities found!"
+          exit 1
+        fi
+        echo "✅ No critical vulnerabilities found"
+
+  build-images:
+    needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push API image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./apps/api
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/ai-market-api:${{ github.event.inputs.version }}
+          ${{ env.DOCKER_REGISTRY }}/ai-market-api:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push Web image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./apps/web
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/ai-market-web:${{ github.event.inputs.version }}
+          ${{ env.DOCKER_REGISTRY }}/ai-market-web:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-production:
+    needs: [security-scan, build-images]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.approve == 'true' }}
+    environment: production
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ env.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+    
+    - name: Deploy to production
+      run: |
+        # Create namespace if it doesn't exist
+        kubectl create namespace ai-market-terminal --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Apply production secrets
+        kubectl apply -f infra/k8s/production-secrets.yaml
+        
+        # Deploy with Helm
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+        helm repo update
+        
+        helm upgrade --install ai-market-production ./infra/helm \
+          --namespace ai-market-terminal \
+          --values infra/helm/values.prod.yaml \
+          --set global.imageRegistry=${{ env.DOCKER_REGISTRY }} \
+          --set global.imageTag=${{ github.event.inputs.version }} \
+          --wait \
+          --timeout=15m
+    
+    - name: Wait for deployment
+      run: |
+        export KUBECONFIG=kubeconfig.yaml
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=ai-market-production -n ai-market-terminal --timeout=600s
+    
+    - name: Run production smoke tests
+      run: |
+        export KUBECONFIG=kubeconfig.yaml
+        # Update smoke test URLs for production
+        sed -i 's/staging.aimarketterminal.com/aimarketterminal.com/g' scripts/smoke_staging.sh
+        sed -i 's/api.staging.aimarketterminal.com/api.aimarketterminal.com/g' scripts/smoke_staging.sh
+        chmod +x scripts/smoke_staging.sh
+        ./scripts/smoke_staging.sh
+    
+    - name: Notify deployment success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: '🚀 Production deployment successful! AI Market Terminal v${{ github.event.inputs.version }} is now live!'
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+    
+    - name: Notify deployment failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: '❌ Production deployment failed! Please check the logs immediately.'
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+
+  post-deployment:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ env.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+    
+    - name: Generate deployment report
+      run: |
+        export KUBECONFIG=kubeconfig.yaml
+        echo "# Production Deployment Report" > deployment-report.md
+        echo "## Deployment Details" >> deployment-report.md
+        echo "- Version: ${{ github.event.inputs.version }}" >> deployment-report.md
+        echo "- Environment: ${{ github.event.inputs.environment }}" >> deployment-report.md
+        echo "- Deployed by: ${{ github.actor }}" >> deployment-report.md
+        echo "- Timestamp: $(date)" >> deployment-report.md
+        echo "" >> deployment-report.md
+        echo "## Service Status" >> deployment-report.md
+        kubectl get pods -n ai-market-terminal >> deployment-report.md
+        echo "" >> deployment-report.md
+        echo "## Access URLs" >> deployment-report.md
+        echo "- Web Application: https://aimarketterminal.com" >> deployment-report.md
+        echo "- API Documentation: https://api.aimarketterminal.com/docs" >> deployment-report.md
+        echo "- Beta Portal: https://beta.aimarketterminal.com" >> deployment-report.md
+        echo "- Grafana Dashboard: https://aimarketterminal.com/grafana" >> deployment-report.md
+    
+    - name: Upload deployment report
+      uses: actions/upload-artifact@v3
+      with:
+        name: production-deployment-report
+        path: deployment-report.md
