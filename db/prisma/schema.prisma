@@ -90,6 +90,8 @@ model Skill {
   level        SkillLevel
   verified     Boolean    @default(false)
   evidenceRefs Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -107,6 +109,8 @@ model Experience {
   highlights           String[]
   verificationStatus   ExperienceVerificationStatus
   evidenceRefs         Json?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -120,6 +124,8 @@ model Project {
   summary      String
   links        Json?
   evidenceRefs Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -176,6 +182,16 @@ model SigningKey {
   rotatedAt  DateTime?
 
   @@map("signing_keys")
+}
+
+model TrustScoreSnapshot {
+  id        String   @id @default(uuid())
+  userId    String
+  score     Int
+  breakdown Json
+  createdAt DateTime @default(now())
+
+  @@map("trust_score_snapshots")
 }
 
 
