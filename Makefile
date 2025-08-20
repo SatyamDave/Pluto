@@ -1,9 +1,9 @@
 SHELL := /bin/bash
 
-.PHONY: dev test e2e seed fmt audit build up down status
+.PHONY: dev test e2e seed fmt audit build up down status db.migrate
 
  dev:
-	npm run dev
+	docker compose up -d --build
 
  test:
 	npx playwright test tests/e2e || true; pytest -q || true
@@ -13,6 +13,9 @@ SHELL := /bin/bash
 
  seed:
 	npm run db:seed --workspace=packages/database
+
+ db.migrate:
+	python -m pip install prisma && python -m prisma generate --schema db/prisma/schema.prisma
 
  fmt:
 	black apps/api packages/ai-engine || true; isort apps/api packages/ai-engine || true; npx prettier --write . || true

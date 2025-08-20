@@ -2,22 +2,21 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  postgres:
+  db:
     image: postgres:15-alpine
-    container_name: ai-identity-postgres
+    container_name: workid-postgres
     environment:
-      POSTGRES_DB: ai_identity
-      POSTGRES_USER: ai_identity_user
-      POSTGRES_PASSWORD: ai_identity_password
+      POSTGRES_DB: workid
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
     networks:
       - ai-identity-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ai_identity_user -d ai_identity"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d workid"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -44,12 +43,12 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: ai-identity-api
+    container_name: workid-api
     environment:
-      - DATABASE_URL=postgresql://ai_identity_user:ai_identity_password@postgres:5432/ai_identity
-      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
+      - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
+      - API_JWT_SECRET=${API_JWT_SECRET}
       - NODE_ENV=production
     ports:
       - "8000:8000"
@@ -59,7 +58,7 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -75,12 +74,12 @@ services:
     build:
       context: ./packages/ai-engine
       dockerfile: Dockerfile
-    container_name: ai-identity-ai-engine
+    container_name: workid-ai-engine
     environment:
-      - DATABASE_URL=postgresql://ai_identity_user:ai_identity_password@postgres:5432/ai_identity
-      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
+      - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
+      - API_JWT_SECRET=${API_JWT_SECRET}
       - NODE_ENV=production
     ports:
       - "8001:8001"
@@ -90,7 +89,7 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -106,7 +105,7 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-    container_name: ai-identity-web
+    container_name: workid-web
     environment:
       - NEXT_PUBLIC_API_URL=http://api:8000
       - NEXT_PUBLIC_AI_ENGINE_URL=http://ai-engine:8001
@@ -138,7 +137,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: ai-identity-nginx
+    container_name: workid-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -157,17 +156,17 @@ services:
   # Database Migration Service
   db-migrate:
     build:
-      context: ./packages/database
+      context: .
       dockerfile: Dockerfile
-    container_name: ai-identity-db-migrate
+    container_name: workid-db-migrate
     environment:
-      - DATABASE_URL=postgresql://ai_identity_user:ai_identity_password@postgres:5432/ai_identity
+      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     networks:
       - ai-identity-network
-    command: ["npm", "run", "db:push"]
+    command: ["bash", "-lc", "python -m pip install prisma && python -m prisma generate --schema db/prisma/schema.prisma && python -c 'from prisma import Prisma; import asyncio; async def m():\n c=Prisma(); await c.connect(); await c.disconnect();\nasyncio.run(m())' "]
     restart: "no"
 
 volumes:

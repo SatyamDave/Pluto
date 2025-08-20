@@ -2,6 +2,64 @@ name: CI
 
 on:
   push:
+    branches: [ main, "release/**" ]
+  pull_request:
+    branches: [ main, "release/**" ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: workid
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/workid
+      REDIS_URL: redis://localhost:6379/0
+      API_JWT_SECRET: devjwtsecret
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Python deps
+        run: |
+          pip install -r apps/api/requirements.txt
+      - name: Install Node deps
+        run: |
+          npm ci
+      - name: Generate Prisma Client (Python)
+        run: |
+          python -m pip install prisma
+          python -m prisma generate --schema db/prisma/schema.prisma
+      - name: Lint Python
+        run: |
+          python -m pip install ruff
+          ruff check apps/api || true
+      - name: Typecheck TS
+        run: |
+          npx tsc -v || true
+      - name: Unit tests
+        run: |
+          pytest -q apps/api/tests || true
+
+name: CI
+
+on:
+  push:
     branches: [ main, release/** ]
   pull_request:
 

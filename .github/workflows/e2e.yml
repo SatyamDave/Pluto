@@ -10,6 +10,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Docker Compose up
+        run: |
+          docker compose up -d --build
+          sleep 10
+      - name: Seed
+        run: |
+          make seed || true
+      - name: Playwright
+        run: |
+          npx playwright install --with-deps
+          npx playwright test tests/e2e
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose logs api | tail -n 200
+          docker compose logs web | tail -n 200
+
+name: E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4

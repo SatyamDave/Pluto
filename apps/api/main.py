@@ -30,6 +30,7 @@ from .utils.redaction import redact_text, redact_dict
 from .services.verification_jobs import VerificationJobsService
 from .routes import user_data as user_data_routes
 from .routes import export as export_routes
+from .routes import cards as cards_routes
 
 # Configure structured logging
 structlog.configure(
@@ -79,6 +80,7 @@ app.add_middleware(
 # Routers
 app.include_router(user_data_routes.router)
 app.include_router(export_routes.router)
+app.include_router(cards_routes.router)
 
 # Security
 security = HTTPBearer()
