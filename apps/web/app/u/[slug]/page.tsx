@@ -18,7 +18,7 @@ async function getMeta(slug: string) {
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const meta = await getMeta(params.slug)
-  return { title: meta.title, description: meta.description, openGraph: { images: [meta.image] } }
+  return { title: meta.title, description: meta.description, openGraph: { images: [meta.image] }, other: { 'script:ld+json': JSON.stringify({ '@context': 'https://schema.org', '@type': 'Person', name: meta.title }) } as any }
 }
 
 export default async function PublicCardPage({ params }: { params: { slug: string } }) {
@@ -27,6 +27,7 @@ export default async function PublicCardPage({ params }: { params: { slug: strin
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
+      <script type="application/ld+json" suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify({ '@context': 'https://schema.org', '@type': 'Person', headline: data.headline, hasCredential: data.highlights.map((h:string)=>({ '@type': 'EducationalOccupationalCredential', name: h })) }) }} />
       <div className="container-wide py-10">
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
