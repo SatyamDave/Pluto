@@ -1,212 +1,134 @@
-# AI Market Terminal
+# 🌍 AI Identity Platform
 
-A production-ready AI-powered trading terminal with tiered access for learners, professionals, and quantitative traders.
+**Modular AI Identity System** - Your AI-native identity isn't one big blob, it's modular cards you pull out depending on the situation.
 
-## 🚀 Features
+## 🎴 Vision
 
-### Multi-Tier Access
-- **Learner**: Free tier with AI tutor, paper trading, and basic backtesting
-- **Pro**: Live trading access, advanced strategies, and real-time analytics
-- **Quant**: Custom strategy builder, API access, and advanced analytics
-- **Enterprise**: Team management, custom integrations, and SLA guarantees
+An **AI-native modular identity system** where users can create context-specific "identity cards":
+- **Work Identity Card** → replaces resumes (skills, verified work history, AI-scored credibility)
+- **Financial Identity Card** → replaces credit score (income proof, spending consistency, risk score)
+- **Creator Identity Card** → replaces follower screenshots (authenticity, engagement quality)
+- **Civic Identity Card** → human verification + community reputation
 
-### Core Capabilities
-- 🤖 AI-powered trading strategies
-- 📊 Real-time market data and analytics
-- 🔬 Advanced backtesting engine
-- 💳 Integrated payment processing (Stripe)
-- 📈 Comprehensive monitoring and logging
-- 🔐 JWT-based authentication with role-based access
+Each card is **AI-generated, verifiable, portable, and privacy-controlled**.
+
+## 🚀 MVP: Work Identity Card
+
+We're launching with the **Work Identity Card** - a dynamic, auto-updating profile that shows your skills, credibility, and proof.
+
+### Key Features
+- **AI-Verified Skills**: "Python — 2,134 lines committed in 2024, 5 production projects, verified by GitHub"
+- **Dynamic Updates**: Always fresh, unlike static resumes
+- **Interactive Cards**: Recruiters can chat with your AI agent about your work
+- **Trust Score**: AI confidence meter (0-100) for credibility
+- **Portable**: Share as link, QR code, or embed in signatures
 
 ## 🏗️ Architecture
 
 ```
 ai-market-terminal/
 ├── apps/
-│   ├── api/          # FastAPI backend
-│   ├── web/          # React frontend
-│   └── cli/          # Command-line interface
-├── auth/             # Authentication module
-├── infra/            # Infrastructure configs
-│   ├── k8s/          # Kubernetes manifests
-│   ├── monitoring/   # Prometheus + Grafana
-│   └── db/           # Database configs
-├── demos/            # Demo workflows
-└── docs/             # Documentation
+│   ├── web/                 # Next.js frontend
+│   └── api/                 # FastAPI backend
+├── packages/
+│   ├── ui/                  # Shared UI components
+│   ├── database/            # Prisma schema & migrations
+│   └── ai-engine/           # AI processing & verification
+├── docs/                    # Documentation
+└── scripts/                 # Development scripts
 ```
 
-## 🛠️ Quick Start
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Backend**: FastAPI, Python 3.11+
+- **Database**: PostgreSQL, Redis
+- **AI**: OpenAI API, LangChain
+- **Auth**: OAuth (Google, LinkedIn, GitHub)
+- **Deployment**: Docker, Vercel, Railway
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
-- Python 3.11+
 - Node.js 18+
-- Kubernetes cluster (for production)
+- Python 3.11+
+- PostgreSQL
+- Redis
 
-### Local Development
+### Development Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/ai-market-terminal.git
-   cd ai-market-terminal
-   ```
-
-2. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. **Start with Docker Compose**
-   ```bash
-   docker-compose -f docker-compose.prod.yml up -d
-   ```
-
-4. **Access the applications**
-   - Web UI: http://localhost
-   - API: http://localhost:8000
-   - Grafana: http://localhost:3000 (admin/admin)
-   - Prometheus: http://localhost:9090
-
-### Manual Setup
-
-#### API Backend
+1. **Clone & Install**
 ```bash
-cd apps/api
-pip install -r requirements.txt
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-#### Web Frontend
-```bash
-cd apps/web
+git clone <repo-url>
+cd ai-market-terminal
 npm install
-npm start
 ```
 
-#### CLI Tool
+2. **Environment Setup**
 ```bash
-cd apps/cli
-pip install -r requirements.txt
-python main.py --help
+cp .env.example .env.local
+# Fill in your API keys and database URLs
 ```
 
-## 🚀 Production Deployment
-
-### Kubernetes Deployment
-
-1. **Build and push Docker images**
-   ```bash
-   docker build -t your-registry/ai-market-api:latest apps/api/
-   docker build -t your-registry/ai-market-web:latest apps/web/
-   docker push your-registry/ai-market-api:latest
-   docker push your-registry/ai-market-web:latest
-   ```
-
-2. **Deploy to Kubernetes**
-   ```bash
-   kubectl apply -f infra/k8s/
-   ```
-
-3. **Set up ingress and SSL**
-   ```bash
-   # Configure your domain in infra/k8s/ingress.yaml
-   kubectl apply -f infra/k8s/ingress.yaml
-   ```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JWT_SECRET_KEY` | JWT signing secret | `your-secret-key-change-in-production` |
-| `STRIPE_SECRET_KEY` | Stripe secret key | - |
-| `POSTGRES_PASSWORD` | Database password | `secure_password` |
-| `POSTHOG_API_KEY` | PostHog analytics key | - |
-
-## 📊 Monitoring
-
-### Prometheus Metrics
-- API request counts and latency
-- Database connection metrics
-- Custom business metrics
-
-### Grafana Dashboards
-- System health overview
-- Trading performance metrics
-- User activity analytics
-
-### Logging
-- Structured JSON logging
-- Centralized log aggregation
-- Error tracking and alerting
-
-## 🧪 Testing
-
-### Run Tests
+3. **Database Setup**
 ```bash
-# API tests
-cd apps/api && pytest tests/ -v
-
-# Web tests
-cd apps/web && npm test
-
-# CLI tests
-cd apps/cli && python -m pytest tests/ -v
+cd packages/database
+npx prisma generate
+npx prisma db push
 ```
 
-### Demo Workflows
+4. **Start Development**
 ```bash
-# Learner demo
-python demos/learner_demo.py
+# Terminal 1: Frontend
+npm run dev:web
 
-# Pro demo
-python demos/pro_demo.py
+# Terminal 2: Backend
+npm run dev:api
 
-# Quant demo
-python demos/quant_demo.py
+# Terminal 3: AI Engine
+npm run dev:ai
 ```
 
-## 🔧 Development
+5. **Open Application**
+- Frontend: http://localhost:3000
+- API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-### Code Quality
-- **Python**: Black, Flake8, MyPy
-- **JavaScript**: ESLint, Prettier
-- **Pre-commit hooks** for automated formatting
+## 📋 User Flow
 
-### API Documentation
-- Interactive docs: http://localhost:8000/docs
-- OpenAPI spec: http://localhost:8000/openapi.json
+1. **Sign Up** → OAuth with Google/LinkedIn/GitHub
+2. **Create Work Card** → Connect data sources (GitHub, LinkedIn)
+3. **AI Processing** → Extracts skills, experience, proof
+4. **Customize** → Control visibility and presentation
+5. **Share** → Unique URL (identity.me/username/work)
+6. **Auto-Update** → Always fresh with new data
 
-### Database Migrations
-```bash
-cd apps/api
-alembic upgrade head
-```
+## 🔐 Verification System
 
-## 📈 Analytics
+- **Source-Based Proof**: GitHub commits, LinkedIn endorsements
+- **AI Background Check**: Cross-references multiple sources
+- **Human Verification**: Manager/colleague endorsements
+- **Trust Score**: Dynamic credibility rating (0-100)
 
-### PostHog Integration
-- User behavior tracking
-- Feature usage analytics
-- A/B testing capabilities
+## 🎯 Roadmap
 
-### Custom Events
-- User signup/login
-- Backtest execution
-- Trading activity
-- Subscription upgrades
+### Phase 1: Work Identity Card MVP ✅
+- [x] Basic auth & dashboard
+- [x] GitHub/LinkedIn integration
+- [x] AI skill extraction
+- [x] Card generation & sharing
 
-## 🔐 Security
+### Phase 2: Enhanced Features
+- [ ] Financial Identity Card
+- [ ] Creator Identity Card
+- [ ] Advanced AI verification
+- [ ] Mobile app
 
-### Authentication
-- JWT-based authentication
-- Role-based access control
-- Secure password hashing
-
-### Data Protection
-- Encrypted data at rest
-- TLS for data in transit
-- Regular security audits
+### Phase 3: Platform Expansion
+- [ ] Civic Identity Card
+- [ ] Enterprise integrations
+- [ ] Blockchain verification
+- [ ] Global identity layer
 
 ## 🤝 Contributing
 
@@ -216,31 +138,10 @@ alembic upgrade head
 4. Add tests
 5. Submit a pull request
 
-### Development Guidelines
-- Follow the existing code style
-- Add tests for new features
-- Update documentation
-- Ensure all tests pass
-
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/ai-market-terminal/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/ai-market-terminal/discussions)
-
-## 🗺️ Roadmap
-
-- [ ] Advanced AI strategy builder
-- [ ] Real-time market data feeds
-- [ ] Mobile application
-- [ ] Advanced risk management
-- [ ] Social trading features
-- [ ] Institutional features
+MIT License - see LICENSE file for details
 
 ---
 
-**Built with ❤️ by the AI Market Terminal team**
+**Built with ❤️ for the future of AI-native identity**

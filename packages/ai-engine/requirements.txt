@@ -1,5 +1,5 @@
 # =============================================================================
-# FastAPI Backend Dependencies
+# AI Engine Dependencies
 # =============================================================================
 
 # Core Framework
@@ -8,21 +8,32 @@ uvicorn[standard]==0.24.0
 pydantic==2.5.0
 python-multipart==0.0.6
 
-# Authentication & Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-dotenv==1.0.0
-nextauth==0.0.1
+# AI & LLM
+openai==1.3.7
+langchain==0.0.350
+langchain-openai==0.0.2
+anthropic==0.7.7
+tiktoken==0.5.2
 
 # Database
 prisma==0.12.0
 psycopg2-binary==2.9.9
 redis==5.0.1
 
+# Data Processing
+pandas==2.1.4
+numpy==1.25.2
+python-dateutil==2.8.2
+
 # HTTP & API
 httpx==0.25.2
 aiohttp==3.9.1
 requests==2.31.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
 
 # External APIs
 PyGithub==1.59.1
@@ -30,6 +41,10 @@ linkedin-api==2.0.0
 google-auth==2.23.4
 google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
+
+# Image Processing (for QR codes, etc.)
+Pillow==10.1.0
+qrcode[pil]==7.4.2
 
 # Utilities
 python-slugify==8.0.1
@@ -49,17 +64,27 @@ mypy==1.7.1
 structlog==23.2.0
 sentry-sdk[fastapi]==1.38.0
 
-# CORS
-fastapi-cors==0.0.6
+# Async & Performance
+asyncio-mqtt==0.16.1
+celery==5.3.4
+redis==5.0.1
 
-# Rate Limiting
-slowapi==0.1.9
-
-# File Upload
+# File Processing
 python-magic==0.4.27
+PyPDF2==3.0.1
+openpyxl==3.1.2
 
-# Email
-sendgrid==6.10.0
+# Web Scraping (for verification)
+beautifulsoup4==4.12.2
+selenium==4.15.2
+playwright==1.40.0
 
-# Validation
-email-validator==2.1.0
+# Machine Learning (for advanced verification)
+scikit-learn==1.3.2
+scipy==1.11.4
+transformers==4.35.2
+torch==2.1.1
+
+# Blockchain (for future verification)
+web3==6.11.3
+eth-account==0.9.0

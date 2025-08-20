@@ -1,6 +1,0 @@
-[submodule "external/openbb"]
-	path = external/openbb
-	url = https://github.com/OpenBB-finance/OpenBB.git
-[submodule "external/nautilus_trader"]
-	path = external/nautilus_trader
-	url = https://github.com/nautechsystems/nautilus_trader.git

@@ -1,0 +1,482 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// USER MANAGEMENT
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  avatar        String?
+  username      String    @unique
+  bio           String?
+  location      String?
+  website       String?
+  
+  // OAuth providers
+  googleId      String?   @unique
+  githubId      String?   @unique
+  linkedinId    String?   @unique
+  
+  // Account status
+  emailVerified DateTime?
+  isActive      Boolean   @default(true)
+  isPremium     Boolean   @default(false)
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  dataSources   DataSource[]
+  identityCards IdentityCard[]
+  claims        Claim[]
+  verifications Verification[]
+  endorsements  Endorsement[]
+  
+  @@map("users")
+}
+
+// =============================================================================
+// DATA SOURCES (GitHub, LinkedIn, etc.)
+// =============================================================================
+
+model DataSource {
+  id          String   @id @default(cuid())
+  userId      String
+  type        DataSourceType
+  externalId  String?  // External platform ID
+  accessToken String?  // Encrypted access token
+  refreshToken String? // Encrypted refresh token
+  
+  // Connection metadata
+  isConnected Boolean  @default(false)
+  lastSyncAt  DateTime?
+  syncStatus  SyncStatus @default(PENDING)
+  
+  // Platform-specific data
+  metadata    Json?    // Store platform-specific data
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rawData     RawData[]
+  
+  @@unique([userId, type])
+  @@map("data_sources")
+}
+
+enum DataSourceType {
+  GITHUB
+  LINKEDIN
+  GOOGLE_DRIVE
+  EMAIL
+  SLACK
+  NOTION
+  BEHANCE
+  KAGGLE
+  STACKOVERFLOW
+  TWITTER
+  INSTAGRAM
+  YOUTUBE
+  SUBSTACK
+  MEDIUM
+  DEV_TO
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  DISCONNECTED
+}
+
+// =============================================================================
+// RAW DATA FROM EXTERNAL SOURCES
+// =============================================================================
+
+model RawData {
+  id           String   @id @default(cuid())
+  dataSourceId String
+  type         String   // e.g., "github_commits", "linkedin_jobs", "email_threads"
+  externalId   String?  // ID from external platform
+  data         Json     // Raw data from external source
+  metadata     Json?    // Additional metadata
+  
+  // Processing status
+  isProcessed  Boolean  @default(false)
+  processedAt  DateTime?
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  dataSource   DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  claims       Claim[]
+  
+  @@map("raw_data")
+}
+
+// =============================================================================
+// AI-GENERATED CLAIMS
+// =============================================================================
+
+model Claim {
+  id          String   @id @default(cuid())
+  userId      String
+  type        ClaimType
+  category    ClaimCategory
+  title       String
+  description String?
+  
+  // AI-generated content
+  content     Json     // Structured claim data
+  confidence  Float    // AI confidence score (0-1)
+  
+  // Verification
+  isVerified  Boolean  @default(false)
+  verifiedAt  DateTime?
+  verificationMethod VerificationMethod?
+  
+  // Proof sources
+  proofSources Json?   // Array of proof sources (GitHub commits, LinkedIn endorsements, etc.)
+  
+  // Visibility
+  isPublic    Boolean  @default(true)
+  isArchived  Boolean  @default(false)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rawData     RawData[] @relation("ClaimRawData")
+  identityCards IdentityCard[] @relation("CardClaims")
+  verifications Verification[]
+  
+  @@map("claims")
+}
+
+enum ClaimType {
+  SKILL
+  EXPERIENCE
+  EDUCATION
+  PROJECT
+  ACHIEVEMENT
+  CERTIFICATION
+  PUBLICATION
+  CONTRIBUTION
+  ENDORSEMENT
+  RECOMMENDATION
+}
+
+enum ClaimCategory {
+  WORK
+  FINANCIAL
+  CREATOR
+  CIVIC
+  EDUCATION
+  PERSONAL
+}
+
+enum VerificationMethod {
+  AI_AUTO
+  MANUAL_REVIEW
+  THIRD_PARTY
+  BLOCKCHAIN
+  SOCIAL_PROOF
+}
+
+// =============================================================================
+// IDENTITY CARDS
+// =============================================================================
+
+model IdentityCard {
+  id          String   @id @default(cuid())
+  userId      String
+  type        CardType
+  title       String
+  subtitle    String?
+  
+  // Card configuration
+  template    String   @default("default") // Card template/theme
+  layout      Json?    // Custom layout configuration
+  settings    Json?    // Card-specific settings
+  
+  // Content
+  claims      Claim[]  @relation("CardClaims")
+  
+  // Sharing
+  isPublic    Boolean  @default(true)
+  shareSlug   String?  @unique // For public sharing
+  qrCode      String?  // QR code image URL
+  
+  // Analytics
+  viewCount   Int      @default(0)
+  shareCount  Int      @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifications Verification[]
+  
+  @@map("identity_cards")
+}
+
+enum CardType {
+  WORK
+  FINANCIAL
+  CREATOR
+  CIVIC
+  EDUCATION
+  CUSTOM
+}
+
+// =============================================================================
+// VERIFICATION SYSTEM
+// =============================================================================
+
+model Verification {
+  id          String   @id @default(cuid())
+  userId      String
+  claimId     String?
+  cardId      String?
+  
+  // Verification details
+  type        VerificationType
+  status      VerificationStatus @default(PENDING)
+  method      VerificationMethod
+  
+  // Verification data
+  data        Json?    // Verification-specific data
+  metadata    Json?    // Additional metadata
+  
+  // Results
+  result      Json?    // Verification results
+  confidence  Float?   // Confidence score (0-1)
+  notes       String?  // Human notes
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claim       Claim?   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  card        IdentityCard? @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  
+  @@map("verifications")
+}
+
+enum VerificationType {
+  BACKGROUND_CHECK
+  SKILL_ASSESSMENT
+  EMPLOYMENT_VERIFICATION
+  EDUCATION_VERIFICATION
+  IDENTITY_VERIFICATION
+  SOCIAL_PROOF
+  BLOCKCHAIN_VERIFICATION
+}
+
+enum VerificationStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// =============================================================================
+// ENDORSEMENTS & SOCIAL PROOF
+// =============================================================================
+
+model Endorsement {
+  id          String   @id @default(cuid())
+  fromUserId  String
+  toUserId    String
+  claimId     String?
+  
+  // Endorsement details
+  type        EndorsementType
+  message     String?
+  rating      Int?     // 1-5 rating
+  
+  // Verification
+  isVerified  Boolean  @default(false)
+  verifiedAt  DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  fromUser    User     @relation("EndorsementsGiven", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User     @relation("EndorsementsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  claim       Claim?   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  
+  @@map("endorsements")
+}
+
+enum EndorsementType {
+  SKILL_ENDORSEMENT
+  WORK_ENDORSEMENT
+  CHARACTER_REFERENCE
+  PROJECT_ENDORSEMENT
+  GENERAL_ENDORSEMENT
+}
+
+// =============================================================================
+// ANALYTICS & TRACKING
+// =============================================================================
+
+model CardView {
+  id          String   @id @default(cuid())
+  cardId      String
+  viewerIp    String?
+  userAgent   String?
+  referrer    String?
+  source      String?  // How they found the card
+  
+  // View details
+  duration    Int?     // View duration in seconds
+  interactions Json?   // Track interactions (downloads, shares, etc.)
+  
+  // Timestamps
+  viewedAt    DateTime @default(now())
+  
+  @@map("card_views")
+}
+
+model CardShare {
+  id          String   @id @default(cuid())
+  cardId      String
+  sharedBy    String?  // User ID if logged in
+  platform    String   // Where it was shared (email, twitter, linkedin, etc.)
+  
+  // Share details
+  shareUrl    String?
+  metadata    Json?    // Platform-specific metadata
+  
+  // Timestamps
+  sharedAt    DateTime @default(now())
+  
+  @@map("card_shares")
+}
+
+// =============================================================================
+// SUBSCRIPTIONS & BILLING
+// =============================================================================
+
+model Subscription {
+  id          String   @id @default(cuid())
+  userId      String
+  plan        SubscriptionPlan
+  status      SubscriptionStatus @default(ACTIVE)
+  
+  // Billing
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  
+  // Plan limits
+  cardLimit   Int      @default(1)
+  claimLimit  Int      @default(10)
+  verificationLimit Int @default(5)
+  
+  // Timestamps
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+// =============================================================================
+// VERIFICATION JOBS & TRUST SCORE SNAPSHOTS & PUBLIC CARD VIEWS
+// =============================================================================
+
+model VerificationJob {
+  id           String   @id @default(cuid())
+  userId       String
+  cardId       String?
+  claimId      String?
+  type         VerificationJobType
+  status       VerificationJobStatus @default(PENDING)
+  evidence     Json?
+  confidence   Float?
+  nextActionAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, type, status])
+  @@map("verification_jobs")
+}
+
+enum VerificationJobType {
+  EMPLOYMENT_VERIFY
+  SKILL_VERIFY
+  EDUCATION_VERIFY
+}
+
+enum VerificationJobStatus {
+  PENDING
+  IN_PROGRESS
+  AWAITING_USER
+  COMPLETED
+  FAILED
+}
+
+model TrustScoreSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  score      Int
+  breakdown  Json
+  createdAt  DateTime @default(now())
+
+  @@map("trust_score_snapshots")
+}
+
+model PublicCardView {
+  id      String   @id @default(cuid())
+  cardId  String
+  ipHash  String
+  uaHash  String
+  ts      DateTime @default(now())
+
+  @@index([cardId, ts])
+  @@map("public_card_views")
+}

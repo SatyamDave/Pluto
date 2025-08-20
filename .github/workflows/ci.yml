@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, release/** ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ai_identity
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_identity" 
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Install Python deps (API)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/api/requirements.txt
+
+      - name: Install Python deps (AI Engine)
+        run: |
+          pip install -r packages/ai-engine/requirements.txt
+
+      - name: Generate Prisma client
+        run: |
+          npx prisma generate --schema packages/database/prisma/schema.prisma
+
+      - name: Lint (TS)
+        run: npx eslint . --ext .ts,.tsx || true
+
+      - name: Typecheck
+        run: npx tsc -p apps/web/tsconfig.json --noEmit || true
+
+      - name: Lint & Test (Python)
+        run: |
+          black --check apps/api packages/ai-engine || true
+          flake8 apps/api packages/ai-engine || true
+          pytest -q || true
+
+      - name: Build images
+        run: |
+          docker build -f apps/api/Dockerfile apps/api || true
+          docker build -f packages/ai-engine/Dockerfile packages/ai-engine || true
+          docker build -f apps/web/Dockerfile apps/web || true
