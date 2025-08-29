@@ -98,49 +98,58 @@ async def handle_sms_webhook(
                         to_phone=from_phone,
                         message=onboarding_message
                     )
-                    logger.info(f"Onboarding message sent to {from_phone}")
+                    
+                    # Save conversation
+                    db.add(conversation)
+                    await db.commit()
+                    
+                    return Response(content="OK", status_code=200)
+                    
                 except Exception as e:
-                    logger.error(f"Failed to send onboarding message: {e}")
-            
-            # Update user message count
-            await user_manager.increment_message_count(user_profile["id"])
-            
-            db.add(conversation)
-            await db.commit()
-            
-            return Response(content="OK", status_code=200)
+                    logger.error(f"Failed to send onboarding SMS: {e}")
+                    return Response(content="Error", status_code=500)
+            else:
+                logger.error("Telnyx not enabled")
+                return Response(content="Service unavailable", status_code=503)
         
-        # Process message with AI orchestrator for existing users
+        # Process regular message through AI orchestrator
         orchestrator = AIOrchestrator()
-        response = await orchestrator.process_message(
-            user_id=str(user_profile["id"]),
+        result = await orchestrator.process_message(
+            user_id=user_profile["id"],
             message=body,
             message_type="sms"
         )
         
-        # Update conversation with AI response
-        conversation.ai_response = response.get("response", "")
-        conversation.intent = response.get("intent", {}).get("intent", "")
-        conversation.action_taken = response.get("intent", {}).get("action", "")
+        # Extract AI response
+        ai_response = result.get("response", "I'm having trouble processing that right now.")
         
+        # Update conversation with AI response
+        conversation.ai_response = ai_response
+        conversation.intent = result.get("intent", {}).get("intent", "unknown")
+        conversation.action_taken = result.get("result", {}).get("action", "none")
+        
+        # Save conversation
         db.add(conversation)
         await db.commit()
         
-        # Send SMS response via Telnyx
+        # Send AI response back to user
         if is_telnyx_enabled():
             try:
                 handler = TelnyxHandler()
                 await handler.send_sms(
                     to_phone=from_phone,
-                    message=response.get("message", "I'm sorry, I couldn't process your request.")
+                    message=ai_response
                 )
-                logger.info(f"SMS response sent to {from_phone}")
+                
+                logger.info(f"Sent AI response to {from_phone}: {ai_response}")
+                
             except Exception as e:
-                logger.error(f"Failed to send SMS response: {e}")
+                logger.error(f"Failed to send AI response SMS: {e}")
+                return Response(content="Error sending response", status_code=500)
         else:
-            logger.warning("Telnyx not enabled, cannot send SMS response")
+            logger.error("Telnyx not enabled")
+            return Response(content="Service unavailable", status_code=503)
         
-        # Return success response to Telnyx
         return Response(content="OK", status_code=200)
         
     except Exception as e:

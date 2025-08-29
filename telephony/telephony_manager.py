@@ -13,7 +13,7 @@ from .base import (
 )
 from .service_factory import TelephonyServiceFactory
 from services.user_manager import UserManager
-from ai_orchestrator import AIOrchestrator
+# from ai_orchestrator import AIOrchestrator  # Circular import - will import when needed
 from utils import get_logger
 
 logger = get_logger(__name__)
@@ -35,7 +35,7 @@ class TelephonyManager:
         
         # Initialize other services
         self.user_manager = UserManager()
-        self.orchestrator = AIOrchestrator()
+        self.orchestrator = None  # Will initialize when needed
         
         logger.info(f"Telephony Manager initialized with {self.provider}")
     
@@ -58,6 +58,10 @@ class TelephonyManager:
             user_id = user["id"]
             
             # Process message through AI orchestrator
+            if self.orchestrator is None:
+                from ai_orchestrator import AIOrchestrator
+                self.orchestrator = AIOrchestrator()
+            
             result = await self.orchestrator.process_message(
                 user_id=user_id,
                 message=inbound_message.body,

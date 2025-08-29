@@ -77,6 +77,7 @@ class AIOrchestrator:
                 "intent": intent,
                 "exec_mode": exec_mode,
                 "result": routed,
+                "response": routed.get("user_text", "I'm not sure how to help with that yet."),
                 "proactive_suggestions": proactive_suggestions,
                 "context_used": len(recent_context),
             }
@@ -92,11 +93,35 @@ class AIOrchestrator:
     ) -> Dict[str, Any]:
         """Analyze intent with recent context and user preferences."""
         try:
-            # TODO: plug LLM here; fallback simple rules now
-            return self._simple_intent_analysis(message)
+            # Use OpenRouter for real AI intent analysis
+            from services.openrouter_service import analyze_intent_with_openrouter
+            
+            # Build context for the AI
+            context_parts = []
+            if recent_context:
+                context_parts.append("Recent messages:")
+                for ctx in recent_context[-3:]:  # Last 3 messages
+                    context_parts.append(f"- {ctx.get('content', '')[:100]}...")
+            
+            if user_preferences:
+                context_parts.append(f"User preferences: {user_preferences}")
+            
+            context_str = "\n".join(context_parts) if context_parts else "No recent context"
+            
+            # Analyze with AI
+            intent_result = await analyze_intent_with_openrouter(message, context_str)
+            
+            if intent_result and "intent" in intent_result:
+                return intent_result
+            else:
+                # Fallback to simple rules if AI fails
+                self.logger.warning("AI intent analysis failed, using fallback")
+                return self._simple_intent_analysis(message)
+                
         except Exception as e:
             self.logger.error(f"Error analyzing intent with context: {e}", exc_info=True)
-            return {"intent": "unknown", "confidence": 0.0}
+            # Fallback to simple rules
+            return self._simple_intent_analysis(message)
 
     def _decide_execution_mode(self, intent: Dict[str, Any], prefs: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         """Choose cloud vs deeplink vs device_bridge based on action + device prefs."""

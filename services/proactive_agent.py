@@ -203,7 +203,7 @@ class ProactiveAgent:
             else:
                 logger.error(f"Failed to send daily digest to user {user_id}")
                 
-                except Exception as e:
+        except Exception as e:
             logger.error(f"Error sending morning digest to user {user_id}: {e}")
     
     async def _send_evening_digest(self, user_id: int, phone_number: str):
