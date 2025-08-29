@@ -258,6 +258,35 @@ class AIOrchestrator:
             self.logger.error(f"Error generating morning digest: {e}", exc_info=True)
             return "Good morning! Ready to help you today."
 
+    async def run_proactive_automation(self):
+        """Run proactive automation cycle"""
+        try:
+            # Get all active users and check for proactive opportunities
+            active_users = await user_manager.get_active_users()
+            
+            for user in active_users:
+                try:
+                    # Generate proactive suggestions for each user
+                    suggestions = await proactive_agent.suggest_proactive_actions(user["id"])
+                    
+                    if suggestions:
+                        self.logger.info(f"Generated {len(suggestions)} proactive suggestions for user {user['id']}")
+                        
+                        # Store proactive actions in memory
+                        for suggestion in suggestions:
+                            await memory_manager.store_memory(
+                                user_id=user["id"],
+                                memory_type="proactive_suggestion",
+                                content=suggestion.get("message", ""),
+                                metadata={"suggestion_type": suggestion.get("type"), "priority": suggestion.get("priority")}
+                            )
+                            
+                except Exception as e:
+                    self.logger.error(f"Error processing proactive automation for user {user['id']}: {e}")
+                    
+        except Exception as e:
+            self.logger.error(f"Error in proactive automation cycle: {e}")
+
     # ---- Simple fallback NLU ----
     def _simple_intent_analysis(self, message: str) -> Dict[str, Any]:
         m = message.lower()

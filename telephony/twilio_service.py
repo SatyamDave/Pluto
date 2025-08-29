@@ -172,7 +172,8 @@ class TwilioService(BaseTelephonyService):
             
             # Create expected signature (Twilio format)
             # Concatenate the URL and the request body
-            url = f"https://your-domain.com{timestamp}"  # This should be the actual webhook URL
+            from config import settings
+            url = f"{settings.BASE_URL}{timestamp}"  # Use configured BASE_URL
             data = url + str(payload, 'utf-8')
             
             # Create expected signature
