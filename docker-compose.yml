@@ -1,180 +1,85 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: workid-postgres
+  # Pluto AI Application
+  pluto-app:
+    build: .
+    ports:
+      - "8000:8000"
     environment:
-      POSTGRES_DB: workid
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      - DATABASE_URL=postgresql://pluto:pluto_password@postgres:5432/pluto_db
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - ADMIN_TOKEN=dev_admin_token_123
+    depends_on:
+      - postgres
+      - redis
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - pluto-network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=pluto_db
+      - POSTGRES_USER=pluto
+      - POSTGRES_PASSWORD=pluto_password
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
     networks:
-      - ai-identity-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d workid"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - pluto-network
+    restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: ai-identity-redis
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
     ports:
       - "6379:6379"
-    networks:
-      - ai-identity-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # FastAPI Backend
-  api:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-    container_name: workid-api
-    environment:
-      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - API_JWT_SECRET=${API_JWT_SECRET}
-      - NODE_ENV=production
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - ai-identity-network
     volumes:
-      - ./apps/api:/app
-      - /app/node_modules
+      - redis_data:/data
+    networks:
+      - pluto-network
     restart: unless-stopped
 
-  # AI Engine Service
-  ai-engine:
-    build:
-      context: ./packages/ai-engine
-      dockerfile: Dockerfile
-    container_name: workid-ai-engine
+  # pgAdmin (Database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
     environment:
-      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - API_JWT_SECRET=${API_JWT_SECRET}
-      - NODE_ENV=production
+      - PGADMIN_DEFAULT_EMAIL=admin@pluto.ai
+      - PGADMIN_DEFAULT_PASSWORD=admin123
     ports:
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/status"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      - "5050:80"
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
     networks:
-      - ai-identity-network
-    volumes:
-      - ./packages/ai-engine:/app
-      - /app/node_modules
+      - pluto-network
     restart: unless-stopped
 
-  # Next.js Frontend
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    container_name: workid-web
+  # Redis Commander (Redis management)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
     environment:
-      - NEXT_PUBLIC_API_URL=http://api:8000
-      - NEXT_PUBLIC_AI_ENGINE_URL=http://ai-engine:8001
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
-      - NODE_ENV=production
+      - REDIS_HOSTS=local:redis:6379
     ports:
-      - "3000:3000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      - "8081:8081"
     depends_on:
-      - api
-      - ai-engine
+      - redis
     networks:
-      - ai-identity-network
-    volumes:
-      - ./apps/web:/app
-      - /app/node_modules
-      - /app/.next
+      - pluto-network
     restart: unless-stopped
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: workid-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/logs:/var/log/nginx
-    depends_on:
-      - web
-      - api
-      - ai-engine
-    networks:
-      - ai-identity-network
-    restart: unless-stopped
-
-  # Database Migration Service
-  db-migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: workid-db-migrate
-    environment:
-      - POSTGRES_URL=postgresql://postgres:postgres@db:5432/workid
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - ai-identity-network
-    command: ["bash", "-lc", "python -m pip install prisma && python -m prisma generate --schema db/prisma/schema.prisma && python -c 'from prisma import Prisma; import asyncio; async def m():\n c=Prisma(); await c.connect(); await c.disconnect();\nasyncio.run(m())' "]
-    restart: "no"
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
 
 networks:
-  ai-identity-network:
+  pluto-network:
     driver: bridge

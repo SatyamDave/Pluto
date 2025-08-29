@@ -1,0 +1,126 @@
+[run]
+# Source code to measure
+source = .
+
+# Files/directories to omit from coverage
+omit = 
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */.venv/*
+    */build/*
+    */dist/*
+    */migrations/*
+    */alembic/*
+    setup.py
+    run_tests.py
+    main.py
+    config.py
+    env.example
+    *.md
+    *.txt
+    *.ini
+    *.cfg
+    *.yml
+    *.yaml
+    *.json
+    *.sql
+    *.sh
+    *.bat
+
+# Branch coverage
+branch = True
+
+# Include partial branches
+partial_branches = True
+
+# Data file location
+data_file = .coverage
+
+[report]
+# Exclude lines from coverage
+exclude_lines =
+    # Standard library
+    pragma: no cover
+    pragma: no branch
+    
+    # Common patterns
+    def __repr__
+    def __str__
+    def __eq__
+    def __hash__
+    if __name__ == .__main__.:
+    if settings.DEBUG
+    if self.debug:
+    if config.DEBUG:
+    
+    # Error handling
+    raise AssertionError
+    raise NotImplementedError
+    raise ImportError
+    except ImportError:
+    
+    # Type hints and protocols
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+    @(abc\.)?abstractproperty
+    
+    # Test code
+    if 0:
+    if False:
+    if True:
+    
+    # Logging
+    logger\.(debug|info|warning|error|critical)
+    
+    # Configuration
+    DEFAULT_.* = 
+    PLUTO_.* = 
+    
+    # Constants
+    SUPPORTED_.* = 
+    MAX_.* = 
+    MIN_.* = 
+    
+    # Placeholder implementations
+    pass
+    return None
+    return False
+    return True
+    return ""
+    return []
+    return {}
+
+# Show missing lines
+show_missing = True
+
+# Precision for percentages
+precision = 2
+
+# Sort by coverage percentage
+sort = COVER
+
+# Fail if coverage is below threshold
+fail_under = 85
+
+[html]
+# HTML report directory
+directory = htmlcov
+
+# HTML report title
+title = Pluto AI Phone Assistant - Coverage Report
+
+# Extra CSS for styling
+extra_css = 
+
+# JavaScript for interactivity
+extra_js = 
+
+[xml]
+# XML report output
+output = coverage.xml
+
+# Include package data
+package = True
