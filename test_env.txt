@@ -1,0 +1,22 @@
+# Test Environment Variables for Twilio
+# Replace these with your actual Twilio credentials
+
+# Twilio Configuration (Primary)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+15551234567
+TWILIO_WEBHOOK_SECRET=your_webhook_secret_here
+
+# Telephony Provider
+PROVIDER=twilio
+PHONE_NUMBER=+15551234567
+
+# Database (for testing)
+DATABASE_URL=sqlite:///test.db
+REDIS_URL=redis://localhost:6379/0
+
+# Application
+SECRET_KEY=test_secret_key
+DEBUG=true
+LOG_LEVEL=INFO
+BASE_URL=http://localhost:8000

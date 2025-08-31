@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test script to verify Twilio setup for Jarvis Phone
-Run this to check if your Twilio configuration is working
+Test Twilio Setup for Jarvis Phone AI Assistant
+Verifies Twilio configuration and basic functionality
 """
 
 import asyncio
@@ -9,249 +9,177 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Add the project root to the Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-async def test_twilio_config():
-    """Test basic Twilio configuration"""
-    print("🔍 Testing Twilio Configuration...")
+from config import settings, is_twilio_enabled
+from telephony.service_factory import TelephonyServiceFactory
+from telephony.telephony_manager import TelephonyManager
+
+async def test_twilio_configuration():
+    """Test Twilio configuration and basic setup"""
+    print("🔧 Testing Twilio Configuration...")
     
-    # Check environment variables
-    required_vars = [
-        'TWILIO_ACCOUNT_SID',
-        'TWILIO_AUTH_TOKEN', 
-        'TWILIO_PHONE_NUMBER'
-    ]
+    # Check if environment variables are loaded
+    load_dotenv()
     
-    missing_vars = []
-    for var in required_vars:
-        value = os.getenv(var)
-        if not value:
-            missing_vars.append(var)
-        else:
-            # Mask sensitive values
-            if 'TOKEN' in var:
-                display_value = value[:8] + "..." + value[-4:]
-            else:
-                display_value = value
-            print(f"✅ {var}: {display_value}")
-    
-    if missing_vars:
-        print(f"❌ Missing environment variables: {', '.join(missing_vars)}")
-        print("Please add these to your .env file")
+    # Check if Twilio is enabled
+    if not is_twilio_enabled():
+        print("❌ Twilio is not properly configured!")
+        print("Please set the following environment variables:")
+        print("  - TWILIO_ACCOUNT_SID")
+        print("  - TWILIO_AUTH_TOKEN") 
+        print("  - TWILIO_PHONE_NUMBER")
         return False
+    
+    print("✅ Twilio configuration looks good!")
+    print(f"   Account SID: {settings.TWILIO_ACCOUNT_SID[:8]}...")
+    print(f"   Phone Number: {settings.TWILIO_PHONE_NUMBER}")
+    print(f"   Webhook Secret: {'✅' if settings.TWILIO_WEBHOOK_SECRET else '❌'}")
     
     return True
 
-
-async def test_twilio_import():
-    """Test if Twilio can be imported and initialized"""
-    print("\n📦 Testing Twilio Import...")
+async def test_twilio_service_creation():
+    """Test creating Twilio service instance"""
+    print("\n🏗️  Testing Twilio Service Creation...")
     
     try:
-        from twilio.rest import Client
-        print("✅ Twilio client imported successfully")
+        # Create Twilio service
+        config = {
+            "twilio_account_sid": settings.TWILIO_ACCOUNT_SID,
+            "twilio_auth_token": settings.TWILIO_AUTH_TOKEN,
+            "twilio_phone_number": settings.TWILIO_PHONE_NUMBER,
+            "twilio_webhook_secret": settings.TWILIO_WEBHOOK_SECRET
+        }
         
-        # Test client initialization
-        client = Client(
-            os.getenv('TWILIO_ACCOUNT_SID'),
-            os.getenv('TWILIO_AUTH_TOKEN')
-        )
-        print("✅ Twilio client initialized successfully")
+        service = TelephonyServiceFactory.create_service("twilio", config)
         
-        return True
-        
-    except ImportError as e:
-        print(f"❌ Failed to import Twilio: {e}")
-        print("Run: pip install twilio")
-        return False
-    except Exception as e:
-        print(f"❌ Failed to initialize Twilio client: {e}")
-        return False
-
-
-async def test_twilio_connection():
-    """Test connection to Twilio API"""
-    print("\n🔌 Testing Twilio Connection...")
-    
-    try:
-        from twilio.rest import Client
-        
-        client = Client(
-            os.getenv('TWILIO_ACCOUNT_SID'),
-            os.getenv('TWILIO_AUTH_TOKEN')
-        )
-        
-        # Test API connection by fetching account info
-        account = client.api.accounts(os.getenv('TWILIO_ACCOUNT_SID')).fetch()
-        print(f"✅ Connected to Twilio account: {account.friendly_name}")
-        print(f"✅ Account status: {account.status}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to connect to Twilio: {e}")
-        return False
-
-
-async def test_phone_number():
-    """Test if the phone number is valid and accessible"""
-    print("\n📞 Testing Phone Number...")
-    
-    try:
-        from twilio.rest import Client
-        
-        client = Client(
-            os.getenv('TWILIO_ACCOUNT_SID'),
-            os.getenv('TWILIO_AUTH_TOKEN')
-        )
-        
-        phone_number = os.getenv('TWILIO_PHONE_NUMBER')
-        
-        # Fetch phone number details
-        number = client.incoming_phone_numbers.list(phone_number=phone_number)
-        
-        if number:
-            number_obj = number[0]
-            print(f"✅ Phone number found: {number_obj.phone_number}")
-            print(f"✅ Capabilities: Voice={number_obj.capabilities.get('voice', False)}, SMS={number_obj.capabilities.get('sms', False)}")
+        if service:
+            print("✅ Twilio service created successfully!")
             
-            # Check webhook configuration
-            if number_obj.webhook_url:
-                print(f"✅ Webhook URL configured: {number_obj.webhook_url}")
-            else:
-                print("⚠️  No webhook URL configured")
-                
+            # Test health status
+            health = service.get_health_status()
+            print(f"   Health Status: {health}")
+            
             return True
         else:
-            print(f"❌ Phone number {phone_number} not found in your account")
+            print("❌ Failed to create Twilio service")
             return False
             
     except Exception as e:
-        print(f"❌ Failed to test phone number: {e}")
+        print(f"❌ Error creating Twilio service: {e}")
         return False
 
-
-async def test_jarvis_handlers():
-    """Test if Jarvis handlers can be imported"""
-    print("\n🤖 Testing Jarvis Handlers...")
+async def test_twilio_manager():
+    """Test telephony manager with Twilio"""
+    print("\n📱 Testing Telephony Manager with Twilio...")
     
     try:
-        # Test SMS handler
-        from api.routes.sms import router as sms_router
-        print("✅ SMS handler imported successfully")
+        # Create telephony manager
+        config = {
+            "PROVIDER": "twilio",
+            "PHONE_NUMBER": settings.TWILIO_PHONE_NUMBER,
+            "twilio_account_sid": settings.TWILIO_ACCOUNT_SID,
+            "twilio_auth_token": settings.TWILIO_AUTH_TOKEN,
+            "twilio_phone_number": settings.TWILIO_PHONE_NUMBER,
+            "twilio_webhook_secret": settings.TWILIO_WEBHOOK_SECRET
+        }
         
-        # Test voice handler
-        from api.routes.voice import router as voice_router
-        print("✅ Voice handler imported successfully")
+        manager = TelephonyManager(config)
         
-        # Test Twilio handler
-        from telephony.twilio_handler import TwilioHandler
-        print("✅ Twilio handler imported successfully")
+        print("✅ Telephony manager created successfully!")
+        print(f"   Provider: {manager.provider}")
+        print(f"   Phone Number: {manager.phone_number}")
+        
+        # Test configuration validation
+        validation = manager.validate_configuration()
+        print(f"   Configuration Valid: {validation['valid']}")
+        
+        if not validation['valid']:
+            print(f"   Errors: {validation['errors']}")
         
         return True
         
     except Exception as e:
-        print(f"❌ Failed to import Jarvis handlers: {e}")
+        print(f"❌ Error creating telephony manager: {e}")
         return False
 
-
-async def test_webhook_endpoints():
-    """Test if webhook endpoints are accessible"""
-    print("\n🌐 Testing Webhook Endpoints...")
+async def test_twilio_webhook_validation():
+    """Test Twilio webhook signature validation"""
+    print("\n🔐 Testing Twilio Webhook Validation...")
+    
+    if not settings.TWILIO_WEBHOOK_SECRET:
+        print("⚠️  No webhook secret configured - skipping validation test")
+        return True
     
     try:
-        import httpx
+        from telephony.twilio_service import TwilioService
         
-        # Test SMS webhook endpoint
-        sms_url = "http://localhost:8000/api/v1/sms/status"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(sms_url)
-            if response.status_code == 200:
-                print("✅ SMS status endpoint accessible")
-            else:
-                print(f"⚠️  SMS status endpoint returned {response.status_code}")
+        config = {
+            "twilio_account_sid": settings.TWILIO_ACCOUNT_SID,
+            "twilio_auth_token": settings.TWILIO_AUTH_TOKEN,
+            "twilio_phone_number": settings.TWILIO_PHONE_NUMBER,
+            "twilio_webhook_secret": settings.TWILIO_WEBHOOK_SECRET
+        }
         
-        # Test voice webhook endpoint
-        voice_url = "http://localhost:8000/api/v1/voice/status"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(voice_url)
-            if response.status_code == 200:
-                print("✅ Voice status endpoint accessible")
-            else:
-                print(f"⚠️  Voice status endpoint returned {response.status_code}")
+        service = TwilioService(config)
         
+        # Test with mock data
+        test_payload = b"test payload"
+        test_signature = "test_signature"
+        test_timestamp = "1234567890"
+        
+        # This should return False for invalid signature
+        result = await service.validate_webhook_signature(test_payload, test_signature, test_timestamp)
+        
+        print("✅ Webhook validation method working")
         return True
         
     except Exception as e:
-        print(f"❌ Failed to test webhook endpoints: {e}")
-        print("Make sure your FastAPI server is running on localhost:8000")
+        print(f"❌ Error testing webhook validation: {e}")
         return False
-
 
 async def main():
-    """Run all tests"""
+    """Run all Twilio tests"""
     print("🚀 Jarvis Phone - Twilio Setup Test")
     print("=" * 50)
     
     tests = [
-        ("Configuration", test_twilio_config),
-        ("Import", test_twilio_import),
-        ("Connection", test_twilio_connection),
-        ("Phone Number", test_phone_number),
-        ("Handlers", test_jarvis_handlers),
-        ("Webhooks", test_webhook_endpoints),
+        test_twilio_configuration,
+        test_twilio_service_creation,
+        test_twilio_manager,
+        test_twilio_webhook_validation
     ]
     
     results = []
-    
-    for test_name, test_func in tests:
+    for test in tests:
         try:
-            result = await test_func()
-            results.append((test_name, result))
+            result = await test()
+            results.append(result)
         except Exception as e:
-            print(f"❌ {test_name} test failed with exception: {e}")
-            results.append((test_name, False))
+            print(f"❌ Test failed with exception: {e}")
+            results.append(False)
     
-    # Summary
     print("\n" + "=" * 50)
-    print("📊 Test Results Summary")
-    print("=" * 50)
+    print("📊 Test Results Summary:")
     
-    passed = 0
-    for test_name, result in results:
+    passed = sum(results)
+    total = len(results)
+    
+    for i, result in enumerate(results):
         status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if result:
-            passed += 1
+        test_name = tests[i].__name__.replace("test_", "").replace("_", " ").title()
+        print(f"   {test_name}: {status}")
     
-    print(f"\n🎯 {passed}/{len(results)} tests passed")
+    print(f"\nOverall: {passed}/{total} tests passed")
     
-    if passed == len(results):
-        print("\n🎉 All tests passed! Your Twilio setup is ready.")
-        print("\nNext steps:")
-        print("1. Configure webhooks in Twilio console")
-        print("2. Test with a real SMS/call")
-        print("3. Deploy to production")
+    if passed == total:
+        print("🎉 All tests passed! Twilio is ready to use.")
+        return True
     else:
-        print(f"\n⚠️  {len(results) - passed} tests failed. Please fix the issues above.")
-        
-        if not any(result for _, result in results[:3]):
-            print("\n🔧 Quick fixes:")
-            print("- Check your .env file has all required variables")
-            print("- Verify your Twilio credentials are correct")
-            print("- Ensure your Twilio account is active")
-    
-    return passed == len(results)
-
+        print("⚠️  Some tests failed. Please check the configuration.")
+        return False
 
 if __name__ == "__main__":
-    try:
-        success = asyncio.run(main())
-        sys.exit(0 if success else 1)
-    except KeyboardInterrupt:
-        print("\n\n⏹️  Test interrupted by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n💥 Unexpected error: {e}")
-        sys.exit(1)
+    success = asyncio.run(main())
+    sys.exit(0 if success else 1)

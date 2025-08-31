@@ -25,7 +25,7 @@ class TelephonyManager:
     def __init__(self, config: Dict[str, Any]):
         """Initialize telephony manager"""
         self.config = config
-        self.provider = config.get("PROVIDER", "telnyx").lower()
+        self.provider = config.get("PROVIDER", "twilio").lower()
         self.phone_number = config.get("PHONE_NUMBER")
         
         # Create telephony service

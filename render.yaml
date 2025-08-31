@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: pluto-ai
+    env: python
+    buildCommand: pip install -r requirements-railway.txt
+    startCommand: python3 start_pluto_simple.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

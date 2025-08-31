@@ -15,15 +15,16 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(default="postgresql://user:password@localhost:5432/jarvis_phone")
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
     
-    # Telnyx (Primary telephony provider - cheaper than Twilio)
-    TELNYX_API_KEY: Optional[str] = None
-    TELNYX_PHONE_NUMBER: Optional[str] = None
-    TELNYX_WEBHOOK_SECRET: Optional[str] = None
-    
-    # Twilio (Fallback provider)
+    # Twilio (Primary telephony provider)
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
+    TWILIO_WEBHOOK_SECRET: Optional[str] = None
+    
+    # Telnyx (Fallback provider - cheaper than Twilio)
+    TELNYX_API_KEY: Optional[str] = None
+    TELNYX_PHONE_NUMBER: Optional[str] = None
+    TELNYX_WEBHOOK_SECRET: Optional[str] = None
     
     # AI Providers
     OPENAI_API_KEY: Optional[str] = None
@@ -52,12 +53,9 @@ class Settings(BaseSettings):
     SLACK_BOT_TOKEN: Optional[str] = None
     DISCORD_BOT_TOKEN: Optional[str] = None
     
-    # Telephony Provider (default to Telnyx for cost savings)
-    PROVIDER: str = Field(default="telnyx", description="Primary telephony provider")
+    # Telephony Provider (default to Twilio for reliability and features)
+    PROVIDER: str = Field(default="twilio", description="Primary telephony provider")
     PHONE_NUMBER: Optional[str] = Field(default=None, description="Primary phone number for the service")
-    
-    # Twilio (Fallback provider)
-    TWILIO_WEBHOOK_SECRET: Optional[str] = None
     
     # Feature Flags
     ENABLE_PROACTIVE_MODE: bool = Field(default=True, description="Enable proactive automation mode")
@@ -124,24 +122,24 @@ settings = Settings()
 
 
 def get_telephony_provider() -> str:
-    """Get the configured telephony provider (defaults to Telnyx for cost savings)"""
+    """Get the configured telephony provider (defaults to Twilio for reliability)"""
     return settings.PROVIDER.lower()
 
 
-def is_telnyx_enabled() -> bool:
-    """Check if Telnyx is properly configured (primary provider)"""
-    return all([
-        settings.TELNYX_API_KEY,
-        settings.TELNYX_PHONE_NUMBER
-    ])
-
-
 def is_twilio_enabled() -> bool:
-    """Check if Twilio is properly configured (fallback provider)"""
+    """Check if Twilio is properly configured (primary provider)"""
     return all([
         settings.TWILIO_ACCOUNT_SID,
         settings.TWILIO_AUTH_TOKEN,
         settings.TWILIO_PHONE_NUMBER
+    ])
+
+
+def is_telnyx_enabled() -> bool:
+    """Check if Telnyx is properly configured (fallback provider)"""
+    return all([
+        settings.TELNYX_API_KEY,
+        settings.TELNYX_PHONE_NUMBER
     ])
 
 

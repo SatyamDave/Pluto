@@ -43,6 +43,9 @@ async def handle_sms_webhook(
         # Parse JSON payload from Telnyx webhook
         webhook_data = await request.json()
         
+        # Log the full webhook payload for debugging
+        logger.info(f"Received Telnyx webhook: {json.dumps(webhook_data, indent=2)}")
+        
         # Extract SMS data from Telnyx webhook format
         sms_data = webhook_data.get("data", {})
         event_type = sms_data.get("event_type")

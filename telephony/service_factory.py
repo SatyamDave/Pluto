@@ -43,7 +43,7 @@ class TelephonyServiceFactory:
     @staticmethod
     def get_supported_providers() -> list:
         """Get list of supported telephony providers"""
-        return ["telnyx", "twilio"]
+        return ["twilio", "telnyx"]
     
     @staticmethod
     def validate_config(provider: str, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -60,15 +60,7 @@ class TelephonyServiceFactory:
         errors = []
         warnings = []
         
-        if provider.lower() == "telnyx":
-            if not config.get("telnyx_api_key"):
-                errors.append("telnyx_api_key is required")
-            if not config.get("telnyx_phone_number"):
-                errors.append("telnyx_phone_number is required")
-            if not config.get("telnyx_webhook_secret"):
-                warnings.append("telnyx_webhook_secret is recommended for security")
-                
-        elif provider.lower() == "twilio":
+        if provider.lower() == "twilio":
             if not config.get("twilio_account_sid"):
                 errors.append("twilio_account_sid is required")
             if not config.get("twilio_auth_token"):
@@ -77,6 +69,14 @@ class TelephonyServiceFactory:
                 errors.append("twilio_phone_number is required")
             if not config.get("twilio_webhook_secret"):
                 warnings.append("twilio_webhook_secret is recommended for security")
+                
+        elif provider.lower() == "telnyx":
+            if not config.get("telnyx_api_key"):
+                errors.append("telnyx_api_key is required")
+            if not config.get("telnyx_phone_number"):
+                errors.append("telnyx_phone_number is required")
+            if not config.get("telnyx_webhook_secret"):
+                warnings.append("telnyx_webhook_secret is recommended for security")
         
         return {
             "valid": len(errors) == 0,

@@ -46,18 +46,30 @@ class TwilioService(BaseTelephonyService):
     async def send_sms(self, request: MessageRequest) -> Dict[str, Any]:
         """Send SMS via Twilio"""
         try:
-            # TODO: Implement actual Twilio SMS API call
-            # For now, return mock response
-            logger.info(f"Sending SMS to {request.to}: {request.body}")
+            from twilio.rest import Client
+            
+            # Initialize Twilio client
+            client = Client(self.account_sid, self.auth_token)
+            
+            # Send SMS via Twilio
+            message = client.messages.create(
+                body=request.body,
+                from_=request.from_,
+                to=request.to
+            )
+            
+            logger.info(f"SMS sent successfully via Twilio to {request.to}: {message.sid}")
             
             return {
-                "message_id": f"twilio_msg_{int(time.time())}",
-                "status": "queued",
+                "message_id": message.sid,
+                "status": message.status,
                 "provider": "twilio",
                 "to": request.to,
                 "from": request.from_,
                 "body": request.body,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "price": getattr(message, 'price', None),
+                "price_unit": getattr(message, 'price_unit', None)
             }
             
         except Exception as e:
@@ -71,18 +83,36 @@ class TwilioService(BaseTelephonyService):
     async def make_call(self, request: CallRequest) -> Dict[str, Any]:
         """Make outbound call via Twilio"""
         try:
-            # TODO: Implement actual Twilio Voice API call
-            # For now, return mock response
-            logger.info(f"Making call to {request.to}: {request.script}")
+            from twilio.rest import Client
+            from twilio.twiml.voice_response import VoiceResponse
+            
+            # Initialize Twilio client
+            client = Client(self.account_sid, self.auth_token)
+            
+            # Generate TwiML for the call
+            twiml = VoiceResponse()
+            twiml.say(request.script, voice="alice")
+            twiml.hangup()
+            
+            # Make the call
+            call = client.calls.create(
+                twiml=str(twiml),
+                from_=request.from_,
+                to=request.to
+            )
+            
+            logger.info(f"Call initiated successfully via Twilio to {request.to}: {call.sid}")
             
             return {
-                "call_id": f"twilio_call_{int(time.time())}",
-                "status": "queued",
+                "call_id": call.sid,
+                "status": call.status,
                 "provider": "twilio",
                 "to": request.to,
                 "from": request.from_,
                 "script": request.script,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "price": getattr(call, 'price', None),
+                "price_unit": getattr(call, 'price_unit', None)
             }
             
         except Exception as e:
@@ -131,10 +161,27 @@ class TwilioService(BaseTelephonyService):
     async def get_call_status(self, call_id: str) -> CallStatus:
         """Get call status from Twilio"""
         try:
-            # TODO: Implement actual Twilio API call to get status
-            # For now, return mock status
-            logger.info(f"Getting call status for {call_id}")
-            return CallStatus.COMPLETED
+            from twilio.rest import Client
+            
+            # Initialize Twilio client
+            client = Client(self.account_sid, self.auth_token)
+            
+            # Get call details
+            call = client.calls(call_id).fetch()
+            
+            # Map Twilio status to our enum
+            status_mapping = {
+                'queued': CallStatus.QUEUED,
+                'ringing': CallStatus.RINGING,
+                'in-progress': CallStatus.IN_PROGRESS,
+                'completed': CallStatus.COMPLETED,
+                'busy': CallStatus.BUSY,
+                'failed': CallStatus.FAILED,
+                'no-answer': CallStatus.NO_ANSWER,
+                'canceled': CallStatus.CANCELED
+            }
+            
+            return status_mapping.get(call.status, CallStatus.UNKNOWN)
             
         except Exception as e:
             logger.error(f"Error getting call status: {e}")
@@ -143,10 +190,25 @@ class TwilioService(BaseTelephonyService):
     async def get_message_status(self, message_id: str) -> MessageStatus:
         """Get message status from Twilio"""
         try:
-            # TODO: Implement actual Twilio API call to get status
-            # For now, return mock status
-            logger.info(f"Getting message status for {message_id}")
-            return MessageStatus.DELIVERED
+            from twilio.rest import Client
+            
+            # Initialize Twilio client
+            client = Client(self.account_sid, self.auth_token)
+            
+            # Get message details
+            message = client.messages(message_id).fetch()
+            
+            # Map Twilio status to our enum
+            status_mapping = {
+                'queued': MessageStatus.QUEUED,
+                'sending': MessageStatus.SENDING,
+                'sent': MessageStatus.SENT,
+                'delivered': MessageStatus.DELIVERED,
+                'undelivered': MessageStatus.UNDELIVERED,
+                'failed': MessageStatus.FAILED
+            }
+            
+            return status_mapping.get(message.status, MessageStatus.UNKNOWN)
             
         except Exception as e:
             logger.error(f"Error getting message status: {e}")
@@ -155,8 +217,15 @@ class TwilioService(BaseTelephonyService):
     async def hangup_call(self, call_id: str) -> bool:
         """Hang up call via Twilio"""
         try:
-            # TODO: Implement actual Twilio API call to hang up
-            logger.info(f"Hanging up call {call_id}")
+            from twilio.rest import Client
+            
+            # Initialize Twilio client
+            client = Client(self.account_sid, self.auth_token)
+            
+            # Update call to hang up
+            call = client.calls(call_id).update(status='completed')
+            
+            logger.info(f"Call {call_id} hung up successfully")
             return True
             
         except Exception as e:

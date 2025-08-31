@@ -1,247 +1,228 @@
-# 🚀 Twilio Setup Guide for Jarvis Phone
+# Twilio Setup Guide for Jarvis Phone AI Assistant
 
-This guide will walk you through setting up Twilio SMS + Voice for Jarvis Phone AI Assistant.
+This guide will help you set up Twilio as your primary telephony provider for Jarvis Phone.
+
+## 🚀 Quick Start
+
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Set Environment Variables**
+   ```bash
+   cp env.example .env
+   # Edit .env with your Twilio credentials
+   ```
+
+3. **Test Configuration**
+   ```bash
+   python test_twilio_setup.py
+   ```
 
 ## 📋 Prerequisites
 
-- [Twilio Account](https://www.twilio.com/try-twilio) (free trial available)
-- Credit card for verification (required for trial)
-- Domain with HTTPS for webhooks (ngrok works for development)
+- Twilio account (sign up at [twilio.com](https://twilio.com))
+- Twilio phone number with SMS and Voice capabilities
+- Python 3.8+ installed
 
-## 🔑 Step 1: Get Twilio Credentials
+## 🔑 Required Environment Variables
 
-### 1.1 Sign Up for Twilio
-1. Go to [twilio.com](https://www.twilio.com/try-twilio)
-2. Fill out the signup form
-3. Verify your email and phone number
-4. Complete account verification
+Add these to your `.env` file:
 
-### 1.2 Get Your Credentials
-1. Go to [Twilio Console](https://console.twilio.com/)
-2. Copy your **Account SID** and **Auth Token**
-3. Keep these secure - they're your API keys!
-
-## 📞 Step 2: Buy a Phone Number
-
-### 2.1 Choose Number Type
-- **Local Number** (Recommended for MVP):
-  - Cost: $1/month + usage
-  - No emergency address required
-  - Works immediately
-  
-- **Toll-Free Number**:
-  - Cost: $2/month + usage
-  - **⚠️ REQUIRES emergency address within 30 days**
-  - Number gets suspended if not provided
-
-### 2.2 Purchase Steps
-1. Go to **Console → Phone Numbers → Manage → Buy a number**
-2. Select your area code/region
-3. Choose capabilities:
-   - ✅ **Voice** (for calls)
-   - ✅ **SMS** (for text messages)
-   - ✅ **MMS** (optional, for media)
-4. Click **Buy** and confirm
-
-## ⚙️ Step 3: Configure Webhooks
-
-### 3.1 Set Webhook URLs
-1. Go to **Console → Phone Numbers → Manage**
-2. Click on your purchased number
-3. Configure these webhook URLs:
-
-```
-A Call Comes In:
-https://yourdomain.com/api/v1/voice/webhook/incoming
-HTTP Method: POST
-
-A Message Comes In:
-https://yourdomain.com/api/v1/sms/webhook
-HTTP Method: POST
-```
-
-### 3.2 Development with ngrok
-If testing locally:
 ```bash
-# Install ngrok
-npm install -g ngrok
-
-# Start your FastAPI app
-python main.py
-
-# In another terminal, expose your app
-ngrok http 8000
-
-# Use the ngrok URL for webhooks
-# Example: https://abc123.ngrok.io/api/v1/sms/webhook
-```
-
-## 🔧 Step 4: Environment Configuration
-
-### 4.1 Update .env File
-```env
-# Twilio Configuration
+# Twilio Configuration (Primary)
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=yyyyyyyyyyyyyyyyyyyy
+TWILIO_AUTH_TOKEN=your_auth_token_here
 TWILIO_PHONE_NUMBER=+15551234567
+TWILIO_WEBHOOK_SECRET=your_webhook_secret_here
 
-# Set telephony provider to Twilio
-TELEPHONY_PROVIDER=twilio
+# Telephony Provider
+PROVIDER=twilio
+PHONE_NUMBER=+15551234567
 ```
 
-### 4.2 Verify Configuration
-```python
-# Test your setup
-from config import is_twilio_enabled
-print(f"Twilio enabled: {is_twilio_enabled()}")
+## 📱 Getting Your Twilio Credentials
+
+### 1. Account SID and Auth Token
+1. Log into [Twilio Console](https://console.twilio.com/)
+2. Go to Dashboard → Account Info
+3. Copy your Account SID and Auth Token
+
+### 2. Phone Number
+1. In Twilio Console, go to Phone Numbers → Manage → Active numbers
+2. Buy a new number or use existing one
+3. Ensure it has SMS and Voice capabilities enabled
+
+### 3. Webhook Secret (Optional but Recommended)
+1. Generate a random string (32+ characters)
+2. Use this to validate incoming webhooks
+
+## 🌐 Webhook Configuration
+
+### SMS Webhook
+Set your SMS webhook URL in Twilio Console:
+```
+https://your-domain.com/api/v1/sms/webhook
 ```
 
-## 🧪 Step 5: Test Your Setup
-
-### 5.1 Test SMS
-1. Text your Twilio number: "Hello Jarvis"
-2. Check your FastAPI logs for webhook receipt
-3. Verify Jarvis responds via SMS
-
-### 5.2 Test Voice
-1. Call your Twilio number
-2. Listen for Jarvis greeting
-3. Speak a request and verify response
-
-### 5.3 Test Outbound Operations
-```python
-# Send test SMS
-from telephony.twilio_handler import TwilioHandler
-handler = TwilioHandler()
-await handler.send_sms("+15551234567", "Test message from Jarvis!")
-
-# Make test call
-await handler.make_call("+15551234567", "This is a test call from Jarvis!")
+### Voice Webhook  
+Set your Voice webhook URL in Twilio Console:
+```
+https://your-domain.com/api/v1/voice/webhook
 ```
 
-## 📊 Step 6: Monitor Usage
+## 🧪 Testing Your Setup
 
-### 6.1 Twilio Console
-- **Console → Monitor → Logs**: View all SMS and calls
-- **Console → Monitor → Usage**: Track costs and usage
-- **Console → Phone Numbers**: Manage your numbers
+Run the test script to verify everything is working:
 
-### 6.2 Your Application Logs
 ```bash
-# Check FastAPI logs
-tail -f logs/jarvis.log
-
-# Monitor webhook endpoints
-curl -X POST https://yourdomain.com/api/v1/sms/status
-curl -X POST https://yourdomain.com/api/v1/voice/status
+python test_twilio_setup.py
 ```
 
-## 🚨 Troubleshooting
+This will test:
+- ✅ Configuration validation
+- ✅ Service creation
+- ✅ Telephony manager
+- ✅ Webhook validation
+
+## 📞 Testing SMS
+
+Send a test SMS to your Twilio number:
+
+```python
+from telephony.telephony_manager import TelephonyManager
+from config import settings
+
+# Create manager
+config = {
+    "PROVIDER": "twilio",
+    "PHONE_NUMBER": settings.TWILIO_PHONE_NUMBER,
+    "twilio_account_sid": settings.TWILIO_ACCOUNT_SID,
+    "twilio_auth_token": settings.TWILIO_AUTH_TOKEN,
+    "twilio_phone_number": settings.TWILIO_PHONE_NUMBER,
+    "twilio_webhook_secret": settings.TWILIO_WEBHOOK_SECRET
+}
+
+manager = TelephonyManager(config)
+
+# Send test SMS
+await manager.send_sms(
+    to="+15551234567",
+    body="Hello from Jarvis Phone! 🤖",
+    user_id=1
+)
+```
+
+## 🎯 Testing Voice Calls
+
+Make a test voice call:
+
+```python
+# Make test call
+await manager.make_call(
+    to="+15551234567",
+    script="Hello! This is a test call from Jarvis Phone.",
+    user_id=1,
+    call_type="test"
+)
+```
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-#### 1. Webhook Not Receiving Data
-- ✅ Verify HTTPS (required for production)
-- ✅ Check webhook URL spelling
-- ✅ Ensure FastAPI is running
-- ✅ Check firewall/network settings
+1. **"Twilio is not properly configured"**
+   - Check your `.env` file has all required variables
+   - Verify credentials are correct
+   - Ensure no extra spaces in values
 
-#### 2. SMS Not Sending
-- ✅ Verify Account SID and Auth Token
-- ✅ Check account balance
-- ✅ Verify phone number format (+1XXXXXXXXXX)
-- ✅ Check Twilio console for error codes
+2. **"Failed to create Twilio service"**
+   - Verify Account SID and Auth Token
+   - Check internet connection
+   - Ensure Twilio account is active
 
-#### 3. Voice Calls Not Working
-- ✅ Verify Voice capability is enabled
-- ✅ Check TwiML syntax
-- ✅ Ensure webhook returns valid XML
-- ✅ Check call logs in Twilio console
+3. **"SMS failed to send"**
+   - Verify phone number format (+1XXXXXXXXXX)
+   - Check Twilio account balance
+   - Verify phone number has SMS capability
 
-#### 4. Emergency Address Required (Toll-Free)
-- ⚠️ **CRITICAL**: Provide emergency address within 30 days
-- Go to **Console → Phone Numbers → Emergency Addresses**
-- Add your business address
-- Verify with supporting documents
+4. **"Call failed to initiate"**
+   - Verify phone number has Voice capability
+   - Check Twilio account balance
+   - Ensure phone number is verified (for trial accounts)
 
-### Error Codes
-- **21211**: Invalid phone number
-- **21214**: Invalid 'from' phone number
-- **21608**: Account not active
-- **21610**: Account suspended
+### Debug Mode
 
-## 💰 Cost Management
+Enable debug logging in your `.env`:
 
-### Pricing (US Numbers)
-- **Local Number**: $1/month
-- **Toll-Free Number**: $2/month
-- **SMS**: $0.0079 per message (US)
-- **Voice**: $0.0085 per minute (US)
+```bash
+LOG_LEVEL=DEBUG
+```
 
-### Cost Optimization
-1. **Start with local number** (no emergency address needed)
-2. **Use free trial credits** ($15-20 free credit)
-3. **Monitor usage** in Twilio console
-4. **Set up billing alerts** for unexpected charges
+### Check Twilio Console
+
+- Monitor SMS logs: Console → SMS → Logs
+- Monitor call logs: Console → Voice → Logs
+- Check account status: Console → Dashboard
+
+## 📊 Monitoring and Analytics
+
+### Twilio Console
+- Real-time SMS and call logs
+- Usage analytics
+- Error reports
+- Cost tracking
+
+### Jarvis Phone Logs
+- Application-level telephony logs
+- Webhook processing logs
+- Error tracking
 
 ## 🔒 Security Best Practices
 
-### 1. Protect Credentials
-- Never commit `.env` files to git
-- Use environment variables in production
-- Rotate Auth Token regularly
+1. **Never commit credentials to version control**
+2. **Use webhook signature validation**
+3. **Rotate Auth Token regularly**
+4. **Monitor for unusual activity**
+5. **Use environment variables for all secrets**
 
-### 2. Webhook Security
-- Use HTTPS in production
-- Implement webhook signature validation
-- Rate limit webhook endpoints
+## 💰 Cost Optimization
 
-### 3. Phone Number Security
-- Don't share your Twilio number publicly during development
-- Use ngrok for local testing
-- Monitor for abuse/spam
+- **SMS**: $0.0079 per message (US)
+- **Voice**: $0.0085 per minute (US)
+- **Webhook**: Free
+- **Phone Number**: $1/month
+
+### Tips to Reduce Costs
+- Use webhooks instead of polling
+- Implement rate limiting
+- Monitor usage patterns
+- Use trial credits for testing
 
 ## 🚀 Production Deployment
 
-### 1. Domain Setup
-- Use a real domain (not ngrok)
-- Ensure HTTPS is enabled
-- Set up proper DNS
+1. **Update webhook URLs** to your production domain
+2. **Set webhook secret** for security
+3. **Monitor logs** for errors
+4. **Set up alerts** for failures
+5. **Test thoroughly** before going live
 
-### 2. Environment Variables
-```bash
-# Production .env
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=yyyyyyyyyyyyyyyyyyyy
-TWILIO_PHONE_NUMBER=+15551234567
-TELEPHONY_PROVIDER=twilio
-DEBUG=False
-LOG_LEVEL=WARNING
-```
+## 📚 Additional Resources
 
-### 3. Monitoring
-- Set up Twilio usage alerts
-- Monitor webhook response times
-- Track error rates and success rates
+- [Twilio Python SDK Documentation](https://www.twilio.com/docs/libraries/python)
+- [Twilio Webhook Security](https://www.twilio.com/docs/usage/webhooks/webhooks-security)
+- [Twilio Best Practices](https://www.twilio.com/docs/usage/best-practices)
+- [Jarvis Phone Documentation](./README.md)
 
-## 📱 Next Steps
+## 🆘 Getting Help
 
-Once Twilio is working:
+If you encounter issues:
 
-1. **Test all Jarvis features** via SMS and voice
-2. **Set up proactive automation** (daily digests, wake-up calls)
-3. **Implement outbound calling** (AI calling humans)
-4. **Add monitoring and analytics**
-5. **Scale to multiple numbers** if needed
+1. Check the troubleshooting section above
+2. Review Twilio Console logs
+3. Check Jarvis Phone application logs
+4. Verify environment variables
+5. Test with the provided test script
 
-## 🆘 Support
-
-- **Twilio Support**: [support.twilio.com](https://support.twilio.com)
-- **Twilio Docs**: [twilio.com/docs](https://www.twilio.com/docs)
-- **Community**: [Stack Overflow](https://stackoverflow.com/questions/tagged/twilio)
-
----
-
-**🎯 You're now ready to launch Jarvis Phone with Twilio!**
-
-Users can simply save your number as "Jarvis" and start texting/calling for AI assistance.
+For additional support, check the main project documentation or create an issue in the repository.
