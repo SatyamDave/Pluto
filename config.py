@@ -21,11 +21,6 @@ class Settings(BaseSettings):
     TWILIO_PHONE_NUMBER: Optional[str] = None
     TWILIO_WEBHOOK_SECRET: Optional[str] = None
     
-    # Telnyx (Fallback provider - cheaper than Twilio)
-    TELNYX_API_KEY: Optional[str] = None
-    TELNYX_PHONE_NUMBER: Optional[str] = None
-    TELNYX_WEBHOOK_SECRET: Optional[str] = None
-    
     # AI Providers
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = Field(default="gpt-4o")
@@ -53,7 +48,7 @@ class Settings(BaseSettings):
     SLACK_BOT_TOKEN: Optional[str] = None
     DISCORD_BOT_TOKEN: Optional[str] = None
     
-    # Telephony Provider (default to Twilio for reliability and features)
+    # Telephony Provider (Twilio only)
     PROVIDER: str = Field(default="twilio", description="Primary telephony provider")
     PHONE_NUMBER: Optional[str] = Field(default=None, description="Primary phone number for the service")
     
@@ -122,24 +117,16 @@ settings = Settings()
 
 
 def get_telephony_provider() -> str:
-    """Get the configured telephony provider (defaults to Twilio for reliability)"""
-    return settings.PROVIDER.lower()
+    """Get the configured telephony provider (Twilio only)"""
+    return "twilio"
 
 
 def is_twilio_enabled() -> bool:
-    """Check if Twilio is properly configured (primary provider)"""
+    """Check if Twilio is properly configured"""
     return all([
         settings.TWILIO_ACCOUNT_SID,
         settings.TWILIO_AUTH_TOKEN,
         settings.TWILIO_PHONE_NUMBER
-    ])
-
-
-def is_telnyx_enabled() -> bool:
-    """Check if Telnyx is properly configured (fallback provider)"""
-    return all([
-        settings.TELNYX_API_KEY,
-        settings.TELNYX_PHONE_NUMBER
     ])
 
 

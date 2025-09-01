@@ -14,8 +14,8 @@ import json
 from db.database import get_db
 from db.models import User, Conversation
 from ai_orchestrator import AIOrchestrator
-from telephony.telnyx_handler import TelnyxHandler
-from config import get_telephony_provider, is_telnyx_enabled
+from telephony.twilio_handler import TwilioHandler
+from config import get_telephony_provider, is_twilio_enabled
 from services.user_manager import user_manager
 
 logger = logging.getLogger(__name__)

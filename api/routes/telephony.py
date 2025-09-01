@@ -15,90 +15,16 @@ from utils import get_logger
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/telephony", tags=["telephony"])
 
-# Initialize telephony manager
+# Initialize telephony manager (Twilio only)
 telephony_manager = TelephonyManager({
     "PROVIDER": settings.PROVIDER,
     "PHONE_NUMBER": settings.PHONE_NUMBER,
-    "telnyx_api_key": settings.TELNYX_API_KEY,
-    "telnyx_webhook_secret": settings.TELNYX_WEBHOOK_SECRET,
-    "telnyx_phone_number": settings.TELNYX_PHONE_NUMBER,
     "twilio_account_sid": settings.TWILIO_ACCOUNT_SID,
     "twilio_auth_token": settings.TWILIO_AUTH_TOKEN,
     "twilio_phone_number": settings.TWILIO_PHONE_NUMBER,
     "twilio_webhook_secret": settings.TWILIO_WEBHOOK_SECRET,
 })
 
-
-@router.post("/telnyx/sms")
-async def telnyx_sms_webhook(request: Request):
-    """Handle inbound SMS webhook from Telnyx"""
-    try:
-        # Get raw payload
-        payload = await request.json()
-        
-        # Validate webhook signature if secret is configured
-        if settings.TELNYX_WEBHOOK_SECRET:
-            signature = request.headers.get("telnyx-signature-ed25519", "")
-            timestamp = request.headers.get("telnyx-timestamp", "")
-            
-            if not await telephony_manager.telephony_service.validate_webhook_signature(
-                await request.body(), signature, timestamp
-            ):
-                logger.warning("Invalid Telnyx webhook signature")
-                raise HTTPException(status_code=401, detail="Invalid signature")
-        
-        # Process the webhook
-        result = await telephony_manager.handle_inbound_sms(payload)
-        
-        logger.info(f"Telnyx SMS webhook processed: {result}")
-        
-        if result.get("success"):
-            return JSONResponse(content=result, status_code=200)
-        else:
-            return JSONResponse(content=result, status_code=500)
-            
-    except Exception as e:
-        logger.error(f"Error processing Telnyx SMS webhook: {e}")
-        return JSONResponse(
-            content={"error": str(e)}, 
-            status_code=500
-        )
-
-
-@router.post("/telnyx/voice")
-async def telnyx_voice_webhook(request: Request):
-    """Handle inbound voice webhook from Telnyx"""
-    try:
-        # Get raw payload
-        payload = await request.json()
-        
-        # Validate webhook signature if secret is configured
-        if settings.TELNYX_WEBHOOK_SECRET:
-            signature = request.headers.get("telnyx-signature-ed25519", "")
-            timestamp = request.headers.get("telnyx-timestamp", "")
-            
-            if not await telephony_manager.telephony_service.validate_webhook_signature(
-                await request.body(), signature, timestamp
-            ):
-                logger.warning("Invalid Telnyx webhook signature")
-                raise HTTPException(status_code=401, detail="Invalid signature")
-        
-        # Process the webhook
-        result = await telephony_manager.handle_inbound_voice(payload)
-        
-        logger.info(f"Telnyx voice webhook processed: {result}")
-        
-        if result.get("success"):
-            return JSONResponse(content=result, status_code=200)
-        else:
-            return JSONResponse(content=result, status_code=500)
-            
-    except Exception as e:
-        logger.error(f"Error processing Telnyx voice webhook: {e}")
-        return JSONResponse(
-            content={"error": str(e)}, 
-            status_code=500
-        )
 
 
 @router.post("/twilio/sms")

@@ -174,6 +174,7 @@ class UserManager:
                 "name": user.name,
                 "email": user.email,
                 "is_active": user.is_active,
+                "message_count": getattr(user, 'message_count', 0),
                 "created_at": user.created_at,
                 "updated_at": user.updated_at,
                 "last_seen": getattr(user, 'last_seen', None),

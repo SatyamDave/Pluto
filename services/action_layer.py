@@ -18,7 +18,6 @@ from utils.logging_config import get_logger
 from telephony.outbound_call_service import OutboundCallService, CallType
 from email_service.email_service import EmailService
 from telephony.twilio_handler import TwilioHandler
-from telephony.telnyx_handler import TelnyxHandler
 
 logger = get_logger(__name__)
 
@@ -53,7 +52,6 @@ class ActionLayer:
         self.outbound_service = OutboundCallService()
         self.email_service = EmailService()
         self.twilio_handler = TwilioHandler()
-        self.telnyx_handler = TelnyxHandler()
         self.logger.info("Action Execution Layer initialized")
     
     async def request_action_confirmation(
@@ -401,12 +399,12 @@ class ActionLayer:
                     action_data["message"]
                 )
                 provider = "twilio"
-            except Exception:
-                result = await self.telnyx_handler.send_sms(
-                    contact_info["phone_number"],
-                    action_data["message"]
-                )
-                provider = "telnyx"
+            except Exception as e:
+                logger.error(f"Failed to send SMS via Twilio: {e}")
+                return {
+                    "status": "failed",
+                    "error": "SMS service unavailable"
+                }
             
             return {
                 "success": result,

@@ -384,7 +384,7 @@ Respond in JSON format with intent, confidence, entities, action_needed, priorit
             max_tokens=500
         )
         
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = response.get("content", "")
         
         # Fix JSON parsing for markdown responses
         if content.startswith("```json"):
@@ -420,7 +420,7 @@ Respond in JSON with datetime, readable_time, type, confidence, and any context 
             max_tokens=300
         )
         
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        content = response.get("content", "")
         
         # Fix JSON parsing for markdown responses
         if content.startswith("```json"):
@@ -460,7 +460,7 @@ Remember: You're not just generating text - you're living in their digital life 
             max_tokens=400
         )
         
-        return response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return response.get("content", "")
     except Exception as e:
         logger.error(f"Error generating response with OpenRouter: {e}")
         return f"I'm having trouble processing that right now. Let me try a different approach."

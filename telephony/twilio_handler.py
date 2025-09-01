@@ -30,11 +30,20 @@ class TwilioHandler:
             # Clean phone number
             clean_phone = self._clean_phone_number(to_phone)
             
-            # Send SMS
+            # Determine if this should be sent as WhatsApp
+            # If original to_phone had whatsapp: prefix or we're using WhatsApp sandbox
+            if "whatsapp:" in to_phone or self.from_number.startswith("whatsapp:"):
+                from_number = f"whatsapp:{self.from_number.replace('whatsapp:', '')}"
+                to_number = f"whatsapp:{clean_phone.replace('whatsapp:', '')}"
+            else:
+                from_number = self.from_number
+                to_number = clean_phone
+            
+            # Send SMS/WhatsApp
             message_obj = self.client.messages.create(
                 body=message,
-                from_=self.from_number,
-                to=clean_phone
+                from_=from_number,
+                to=to_number
             )
             
             logger.info(f"SMS sent successfully. SID: {message_obj.sid}")

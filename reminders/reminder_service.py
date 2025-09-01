@@ -13,8 +13,7 @@ from sqlalchemy import select, and_
 from db.database import get_db
 from db.models import Reminder, User
 from telephony.twilio_handler import TwilioHandler
-from telephony.telnyx_handler import TelnyxHandler
-from config import get_telephony_provider, is_twilio_enabled, is_telnyx_enabled, is_persistent_wakeup_enabled, settings
+from config import get_telephony_provider, is_twilio_enabled, is_persistent_wakeup_enabled, settings
 
 logger = logging.getLogger(__name__)
 
@@ -233,19 +232,13 @@ class ReminderService:
             if reminder.description:
                 message += f"\n{reminder.description}"
             
-            # Send SMS based on configured provider
-            if self.telephony_provider == "twilio" and is_twilio_enabled():
+            # Send SMS via Twilio
+            if is_twilio_enabled():
                 handler = TwilioHandler()
                 await handler.send_sms(user.phone_number, message)
                 return True
-                
-            elif self.telephony_provider == "telnyx" and is_telnyx_enabled():
-                handler = TelnyxHandler()
-                await handler.send_sms(user.phone_number, message)
-                return True
-                
             else:
-                logger.warning("No valid telephony provider configured for SMS")
+                logger.warning("Twilio not configured for SMS")
                 return False
                 
         except Exception as e:
@@ -263,19 +256,13 @@ class ReminderService:
             if "wake" in reminder.title.lower() or "wake" in reminder.description.lower():
                 return await self._send_persistent_wakeup_call(user, reminder)
             
-            # Make regular voice call based on configured provider
-            if self.telephony_provider == "twilio" and is_twilio_enabled():
+            # Make regular voice call via Twilio
+            if is_twilio_enabled():
                 handler = TwilioHandler()
                 await handler.make_call(user.phone_number, message)
                 return True
-                
-            elif self.telephony_provider == "telnyx" and is_telnyx_enabled():
-                handler = TelnyxHandler()
-                await handler.make_call(user.phone_number, message)
-                return True
-                
             else:
-                logger.warning("No valid telephony provider configured for voice calls")
+                logger.warning("Twilio not configured for voice calls")
                 return False
                 
         except Exception as e:
@@ -345,22 +332,14 @@ class ReminderService:
             twiml = self._generate_wakeup_twiml(reminder)
             
             # Make the call
-            if self.telephony_provider == "twilio" and is_twilio_enabled():
+            if is_twilio_enabled():
                 handler = TwilioHandler()
                 call_sid = await handler.make_call_with_twiml(user.phone_number, twiml)
                 
                 # Wait for call completion and check if confirmed
                 return await self._wait_for_wakeup_confirmation(call_sid, user.id)
-                
-            elif self.telephony_provider == "telnyx" and is_telnyx_enabled():
-                handler = TelnyxHandler()
-                call_id = await handler.make_call_with_instructions(user.phone_number, twiml)
-                
-                # Wait for call completion and check if confirmed
-                return await self._wait_for_wakeup_confirmation(call_id, user.id)
-                
             else:
-                logger.warning("No valid telephony provider configured for wake-up calls")
+                logger.warning("Twilio not configured for wake-up calls")
                 return False
                 
         except Exception as e:
@@ -408,18 +387,12 @@ class ReminderService:
             message += "I tried calling you but couldn't reach you. "
             message += "Please reply 'awake' to confirm you're up, or I'll keep trying."
             
-            if self.telephony_provider == "twilio" and is_twilio_enabled():
+            if is_twilio_enabled():
                 handler = TwilioHandler()
                 await handler.send_sms(user.phone_number, message)
                 return True
-                
-            elif self.telephony_provider == "telnyx" and is_telnyx_enabled():
-                handler = TelnyxHandler()
-                await handler.send_sms(user.phone_number, message)
-                return True
-                
             else:
-                logger.warning("No valid telephony provider configured for SMS fallback")
+                logger.warning("Twilio not configured for SMS fallback")
                 return False
                 
         except Exception as e:
@@ -433,19 +406,13 @@ class ReminderService:
             if reminder.description:
                 message += f". {reminder.description}"
             
-            # Make voice call based on configured provider
-            if self.telephony_provider == "twilio" and is_twilio_enabled():
+            # Make voice call via Twilio
+            if is_twilio_enabled():
                 handler = TwilioHandler()
                 await handler.make_call(user.phone_number, message)
                 return True
-                
-            elif self.telephony_provider == "telnyx" and is_telnyx_enabled():
-                handler = TelnyxHandler()
-                await handler.make_call(user.phone_number, message)
-                return True
-                
             else:
-                logger.warning("No valid telephony provider configured for voice calls")
+                logger.warning("Twilio not configured for voice calls")
                 return False
                 
         except Exception as e:

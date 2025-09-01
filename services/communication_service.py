@@ -12,8 +12,7 @@ from enum import Enum
 
 from config import settings
 from telephony.twilio_handler import TwilioHandler
-from telephony.telnyx_handler import TelnyxHandler
-from config import get_telephony_provider, is_twilio_enabled, is_telnyx_enabled
+from config import get_telephony_provider, is_twilio_enabled
 from notes.notes_service import NotesService
 from email_service.email_service import EmailService
 

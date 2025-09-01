@@ -4,7 +4,7 @@ Handles incoming SMS messages via Telnyx webhooks and routes them to the AI orch
 """
 
 import logging
-from typing import Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -12,19 +12,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
 from db.database import get_db
-from db.models import User, Conversation
+from db.models import Conversation
 from ai_orchestrator import AIOrchestrator
-from telephony.telnyx_handler import TelnyxHandler
-from config import get_telephony_provider, is_telnyx_enabled
+from telephony.twilio_handler import TwilioHandler
+from config import get_telephony_provider, is_twilio_enabled
 from services.user_manager import user_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class TelnyxSMSWebhook(BaseModel):
-    """Telnyx SMS webhook payload"""
-    data: dict
+class TwilioSMSWebhook(BaseModel):
+    """Twilio SMS webhook payload"""
+    Body: str
+    From: str
+    To: str
 
 
 class SMSResponse(BaseModel):
@@ -38,31 +40,41 @@ async def handle_sms_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Handle incoming SMS webhook from Telnyx"""
+    """Handle incoming SMS webhook from Twilio"""
     try:
-        # Parse JSON payload from Telnyx webhook
-        webhook_data = await request.json()
+        # Get raw body first for debugging
+        body = await request.body()
+        logger.info(f"Raw webhook body: {body}")
         
-        # Log the full webhook payload for debugging
-        logger.info(f"Received Telnyx webhook: {json.dumps(webhook_data, indent=2)}")
-        
-        # Extract SMS data from Telnyx webhook format
-        sms_data = webhook_data.get("data", {})
-        event_type = sms_data.get("event_type")
-        
-        # Only process SMS received events
-        if event_type != "message.received":
-            logger.info(f"Ignoring non-SMS event: {event_type}")
+        # Check if body is empty
+        if not body:
+            logger.warning("Received empty webhook body")
             return Response(content="OK", status_code=200)
         
-        # Extract SMS details
-        payload = sms_data.get("payload", {})
-        from_phone = payload.get("from", {}).get("phone_number", "")
-        to_phone = payload.get("to", [{}])[0].get("phone_number", "")
-        body = payload.get("text", "")
-        message_id = payload.get("id", "")
+        # Parse form data from Twilio
+        try:
+            form_data = await request.form()
+            webhook_data = dict(form_data)
+            logger.info("Parsed Twilio form data")
+        except Exception as e:
+            logger.error(f"Failed to parse webhook form data: {e}, body: {body}")
+            return Response(content="Invalid format", status_code=400)
         
-        logger.info(f"Received SMS from {from_phone}: {body}")
+        # Log the full webhook payload for debugging
+        logger.info(f"Received Twilio webhook: {json.dumps(webhook_data, indent=2)}")
+        
+        # Parse Twilio format (including WhatsApp)
+        from_phone_raw = webhook_data.get("From", "")
+        from_phone = from_phone_raw.replace("whatsapp:", "")
+        body_text = webhook_data.get("Body", "")
+        message_id = webhook_data.get("SmsMessageSid", "")
+        
+        # Check if it's a received message
+        if webhook_data.get("SmsStatus") != "received":
+            logger.info(f"Ignoring non-received Twilio message: {webhook_data.get('SmsStatus')}")
+            return Response(content="OK", status_code=200)
+            
+        logger.info(f"Received Twilio/WhatsApp message from {from_phone}: {body_text}")
         
         # Get or create user using user_manager
         user_profile = await user_manager.get_or_create_user(from_phone, db)
@@ -70,17 +82,20 @@ async def handle_sms_webhook(
         # Check if this is a first-time user (first message)
         is_first_message = user_profile.get("message_count", 0) == 0
         
+        # Increment message count for this user
+        await user_manager.increment_message_count(user_profile["id"], db)
+        
         # Create conversation record
         conversation = Conversation(
             user_id=user_profile["id"],
             session_id=message_id or "unknown",
             message_type="sms",
-            user_message=body,
+            user_message=body_text,
             ai_response="",  # Will be filled by orchestrator
             intent="",
             action_taken=""
         )
-        
+        print("is_first_message:", is_first_message)
         # Handle first-time user onboarding
         if is_first_message:
             onboarding_message = (
@@ -93,12 +108,12 @@ async def handle_sms_webhook(
             conversation.intent = "onboarding_welcome"
             conversation.action_taken = "onboarding_triggered"
             
-            # Send onboarding message
-            if is_telnyx_enabled():
+            # Send onboarding message via Twilio
+            if is_twilio_enabled():
                 try:
-                    handler = TelnyxHandler()
+                    handler = TwilioHandler()
                     await handler.send_sms(
-                        to_phone=from_phone,
+                        to_phone=from_phone_raw,
                         message=onboarding_message
                     )
                     
@@ -112,14 +127,14 @@ async def handle_sms_webhook(
                     logger.error(f"Failed to send onboarding SMS: {e}")
                     return Response(content="Error", status_code=500)
             else:
-                logger.error("Telnyx not enabled")
+                logger.error("Twilio not enabled")
                 return Response(content="Service unavailable", status_code=503)
         
         # Process regular message through AI orchestrator
         orchestrator = AIOrchestrator()
         result = await orchestrator.process_message(
             user_id=user_profile["id"],
-            message=body,
+            message=body_text,
             message_type="sms"
         )
         
@@ -136,11 +151,11 @@ async def handle_sms_webhook(
         await db.commit()
         
         # Send AI response back to user
-        if is_telnyx_enabled():
+        if is_twilio_enabled():
             try:
-                handler = TelnyxHandler()
+                handler = TwilioHandler()
                 await handler.send_sms(
-                    to_phone=from_phone,
+                    to_phone=from_phone_raw,
                     message=ai_response
                 )
                 
@@ -150,7 +165,7 @@ async def handle_sms_webhook(
                 logger.error(f"Failed to send AI response SMS: {e}")
                 return Response(content="Error sending response", status_code=500)
         else:
-            logger.error("Telnyx not enabled")
+            logger.error("Twilio not enabled")
             return Response(content="Service unavailable", status_code=503)
         
         return Response(content="OK", status_code=200)
@@ -173,7 +188,7 @@ async def sms_status():
     return {
         "status": "operational",
         "provider": provider,
-        "telnyx_enabled": is_telnyx_enabled(),
+        "twilio_enabled": is_twilio_enabled(),
         "webhook_endpoint": "/api/v1/sms/webhook"
     }
 
@@ -181,15 +196,14 @@ async def sms_status():
 @router.post("/send")
 async def send_sms(
     to_phone: str,
-    message: str,
-    db: AsyncSession = Depends(get_db)
+    message: str
 ):
-    """Send outbound SMS via Telnyx"""
+    """Send outbound SMS via Twilio"""
     try:
-        if not is_telnyx_enabled():
-            raise HTTPException(status_code=500, detail="Telnyx not enabled")
+        if not is_twilio_enabled():
+            raise HTTPException(status_code=500, detail="Twilio not enabled")
         
-        handler = TelnyxHandler()
+        handler = TwilioHandler()
         message_id = await handler.send_sms(to_phone, message)
         
         return {
@@ -205,16 +219,15 @@ async def send_sms(
 
 @router.post("/send-bulk")
 async def send_bulk_sms(
-    phone_numbers: list,
-    message: str,
-    db: AsyncSession = Depends(get_db)
+    phone_numbers: List[str],
+    message: str
 ):
-    """Send bulk SMS via Telnyx"""
+    """Send bulk SMS via Twilio"""
     try:
-        if not is_telnyx_enabled():
-            raise HTTPException(status_code=500, detail="Telnyx not enabled")
+        if not is_twilio_enabled():
+            raise HTTPException(status_code=500, detail="Twilio not enabled")
         
-        handler = TelnyxHandler()
+        handler = TwilioHandler()
         results = await handler.send_bulk_sms(phone_numbers, message)
         
         return {
